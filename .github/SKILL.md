@@ -1,44 +1,150 @@
-# PR Summary Skill — AI Prompt Reference
+---
+name: "pr-changelog-composer-skill"
+title: "PR Description & Changelog Composer (Repo Skill)"
+description: "Generate human-friendly PR descriptions, release notes, and changelog entries from commit diffs, workflow changes, and OpenAPI diffs."
+audience:
+  - "AI-agent"
+  - "Developer"
+  - "Release-manager"
+owner: "team-platform@example.com"
+stability: "experimental"
+tags:
+  - "changelog"
+  - "release-notes"
+  - "automation"
+last_updated: "2026-04-22"
+inputs:
+  - name: "pr_number"
+    type: "string"
+    required: false
+    description: "Pull request number to summarize (if omitted, summarize current PR)"
+  - name: "changelog_level"
+    type: "string"
+    required: false
+    description: "minor|major|patch — used to classify the change for changelog"
+  - name: "include_openapi_diff"
+    type: "string"
+    required: false
+    description: "true|false — include OpenAPI diffs in the summary"
+secrets: []
+outputs:
+  - name: "pr_body"
+    type: "string"
+    description: "Suggested PR description"
+  - name: "changelog_fragment"
+    type: "string"
+    description: "Changelog entry fragment suitable for appending to CHANGELOG.md"
+---
 
-You are a senior software engineer reviewing a pull request. Generate a clear, concise PR summary in markdown format.
+### PR Description & Changelog Composer (Repo Skill)
 
-## Input Context
+Your goal is to synthesize commit diffs, changed files, and API contract diffs into a concise, human-readable PR description and a changelog fragment useful for releases.
+### Template format (required)
 
-You will receive:
-- **PR Title** — the pull request title
-- **Changed Files** — list of files modified in this PR
-- **Commit Messages** — individual commit message headlines
-- **Code Diff** — the actual code changes (may be truncated for large PRs)
+Title (one line): `JIRA-ID: Short descriptive title`  
 
-## Output Format
+## Summary
 
-Structure your summary with exactly these sections:
+One-paragraph summary of the change and intent.
 
-### Overview
-One paragraph (2-4 sentences) explaining what this PR does and why. Focus on the intent and business value, not just the mechanics.
+## Changes identified
 
-### Key Changes
-- Bullet list of the most important changes
-- Group related changes together
-- Use plain language — avoid restating file paths without context
-- Limit to 5-8 bullets for readability
+Grouped list of changed files/areas with short bullet summaries. Use subheadings for files or components, for example:
 
-### Files Modified
-Group files by area or purpose. Example:
-- **Workflows:** `.github/workflows/pr-summary.yml`
-- **Config:** `package.json`, `tsconfig.json`
-- **Source:** `src/handler.ts`, `src/utils.ts`
+### `path/to/file.yml`
 
-### Risk & Review Notes
-- Call out anything reviewers should pay attention to
-- Flag potential breaking changes, security concerns, or edge cases
-- Note if tests are missing or if the change is behind a feature flag
-- If the PR is low-risk, say so briefly
+- Brief bullet describing the modification.
 
-## Style Guidelines
+### `another/file` (optional)
 
-- Be concise — prefer short sentences and bullet points
-- Use technical language appropriately but don't over-jargon
-- Don't speculate about intent if the diff is unclear — note the ambiguity
-- Don't repeat the PR title verbatim in the overview
-- If the diff is truncated, note that the summary may be incomplete
+- Bullet points showing specific edits.
+
+## Why this matters
+
+- Short bullets describing risk, benefits, and impact.
+
+## Validation notes
+
+- Summary of steps taken to validate the change (tests run, files reviewed, constraints checked).
+
+---
+
+### Example (filled)
+
+Title: `CMT-21033: Add CODEOWNERS protections and isolate Azure CLI runner state`
+
+## Summary
+
+This change adds repository ownership rules and hardens the reusable deployment workflow for self-hosted runners.
+
+## Changes identified
+
+### `CODEOWNERS`
+
+- Added a root-level `CODEOWNERS` file.
+- Defined a default catch-all ownership rule using `*` for the main repository contributors:
+  - `@jinpatel_smbc`
+  - `@klux_smbc`
+  - `@vchavan_smbc`
+  - `@lfestin_smbc`
+  - `@sfathima_smbc`
+  - `@vmuppidi_smbc`
+  - `@gcaseneuve_smbc`
+- Added an administrator-only override for changes under `/.github/**`.
+- Added an administrator-only override for `/CODEOWNERS` itself.
+- Documented the branch protection settings needed for required code owner review.
+
+### `.github/workflows/cd-deploy-azure-appconfig-feature-flags.yml`
+
+- Added a job-level `env` block for `deploy-feature-flags`.
+- Set `AZURE_CONFIG_DIR` to `$RUNNER_TEMP/azure-cli-${{ github.run_id }}-${{ github.job }}`.
+- Prevented Azure CLI credentials and cache from being shared across self-hosted runners using the same VM user profile.
+- Improved deployment safety for concurrent or successive workflow runs on shared runners.
+
+## Why this matters
+
+- Protects sensitive repository areas with explicit code owner approval.
+- Establishes default code ownership for the rest of the repository.
+- Reduces the risk of Azure authentication state leaking between workflow runs on self-hosted infrastructure.
+
+## Validation notes
+
+- Reviewed the repository changes currently present in source control.
+- Confirmed the `CODEOWNERS` rules are ordered so specific paths override the default `*` rule.
+- Confirmed the workflow change is limited to Azure CLI state isolation and does not alter deployment logic.
+
+---
+
+### How the skill uses this format
+
+- When invoked on a PR the skill should produce the Title and sections above as the suggested `pr_body` output and generate a `changelog_fragment` suitable for appending to `CHANGELOG.md`.
+- The skill must not include secrets or internal URLs in outputs and should mark any uncertain breaking changes as requiring reviewer confirmation.
+
+### Branch -> Title behavior
+
+- The skill MUST inspect the source branch name (or PR branch) and attempt to extract a CMT/JIRA identifier to prefix the Title. Extraction rules (in order):
+  1. Primary: if the branch contains an explicit `CMT-` token followed by digits (case-insensitive), extract `CMT-<digits>` and use it.
+  2. Secondary: if the branch contains patterns like `cmt/<digits>`, `cmt-<digits>`, or a standalone numeric ticket (e.g., `21033` at start), normalize to `CMT-<digits>`.
+  3. If no identifier is found, the skill should suggest a title without a prefix and include a one-line note `(no CMT id found in branch)` in the draft.
+
+- Recommended regexes for implementation:
+  - Primary: `(?i)\bCMT-(\d+)\b`
+  - Secondary: `(?i)\b(?:cmt[\/-]|)(\d{3,6})\b`
+
+- Normalization and precedence:
+  - If primary regex matches, use `CMT-<digits>` with uppercase `CMT`.
+  - Otherwise, if secondary matches, normalize to `CMT-<digits>`.
+  - If multiple matches occur, prefer the left-most match in the branch string.
+
+- Examples:
+  - `feature/CMT-21033-codeowners` → `CMT-21033:`
+  - `cmt/21033-add-codeowners` → `CMT-21033:`
+  - `21033/add-codeowners` → `CMT-21033:`
+  - `devops/gcaseneuve/cmt-21033/separate-regional-deployments` → `CMT-21033:` (user example)
+
+- Title formatting enforcement:
+  - Title output must be: `<PREFIX> <Short descriptive title>` (single space after colon). Example: `CMT-21033: Add CODEOWNERS protections and isolate Azure CLI runner state`.
+  - If no prefix is found, include the `(no CMT id found in branch)` note immediately below the title in `pr_body`.
+
+
+ 
