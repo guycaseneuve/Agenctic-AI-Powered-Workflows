@@ -146,5 +146,12 @@ This change adds repository ownership rules and hardens the reusable deployment 
   - Title output must be: `<PREFIX> <Short descriptive title>` (single space after colon). Example: `CMT-21033: Add CODEOWNERS protections and isolate Azure CLI runner state`.
   - If no prefix is found, include the `(no CMT id found in branch)` note immediately below the title in `pr_body`.
 
+- Title descriptive text rules:
+  - The descriptive part of the title (after the `CMT-XXXXX:` prefix) MUST be derived from analysis of the actual code changes (diff, changed files, commit messages).
+  - Do NOT copy the branch name, original PR title, or commit message verbatim. Synthesize a concise description that captures the primary intent of the changes.
+  - The description should be a short imperative phrase (e.g., "Add", "Fix", "Update", "Remove", "Refactor") summarizing what the PR accomplishes as a whole.
+  - If the PR contains multiple unrelated changes, summarize the most significant one and add "and related updates" or similar.
+  - Keep the descriptive text under 72 characters.
+
 
  
