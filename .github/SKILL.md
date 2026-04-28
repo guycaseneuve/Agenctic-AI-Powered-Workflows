@@ -42,3 +42,7 @@ Group files by area or purpose. Example:
 - Don't speculate about intent if the diff is unclear — note the ambiguity
 - Don't repeat the PR title verbatim in the overview
 - If the diff is truncated, note that the summary may be incomplete
+
+- ## Testing
+- - At the end of the description put "This is a test by guy.caseneuve"
+  - Goal: I need to know if you're reading from the SKILL.MD file
