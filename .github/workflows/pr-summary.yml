@@ -79,7 +79,18 @@ jobs:
           COMMITS=$(cat /tmp/pr_commits.txt)
           DIFF=$(cat /tmp/pr_diff.txt)
 
-          PROMPT="You are a senior developer reviewing a pull request. Generate a concise PR summary in markdown.
+          # Load SKILL.md as the system prompt (falls back to a default if missing)
+          SKILL_FILE="${GITHUB_WORKSPACE}/.github/SKILL.md"
+          if [ -f "$SKILL_FILE" ]; then
+            SYSTEM_PROMPT=$(cat "$SKILL_FILE")
+            echo "Using SKILL.md as system prompt"
+          else
+            SYSTEM_PROMPT="You are a senior developer reviewing a pull request. Generate a concise PR summary in markdown with sections: Overview, Key Changes, Files Modified, Risk & Review Notes."
+            echo "SKILL.md not found — using default system prompt"
+          fi
+
+          # Build the user message with PR context
+          USER_MSG="Summarize this pull request:
 
           PR Title: ${PR_TITLE}
 
@@ -90,21 +101,19 @@ jobs:
           ${COMMITS}
 
           Diff (may be truncated):
-          ${DIFF}
-
-          Provide:
-          1. **Overview** — one paragraph explaining what this PR does and why
-          2. **Key Changes** — bullet list of the most important changes
-          3. **Files Modified** — grouped by area/purpose
-          4. **Risk/Notes** — anything reviewers should pay attention to"
+          ${DIFF}"
 
           # Build JSON payload safely with jq (avoids injection from PR content)
           PAYLOAD=$(jq -n \
             --arg model "$MODEL" \
-            --arg prompt "$PROMPT" \
+            --arg system "$SYSTEM_PROMPT" \
+            --arg user "$USER_MSG" \
             '{
               model: $model,
-              messages: [{role: "user", content: $prompt}],
+              messages: [
+                {role: "system", content: $system},
+                {role: "user", content: $user}
+              ],
               max_tokens: 1024,
               temperature: 0.3
             }')
