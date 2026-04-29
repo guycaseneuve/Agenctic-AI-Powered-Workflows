@@ -1,0 +1,200 @@
+{
+  "summary": {
+    "total": 21,
+    "critical": 2,
+    "high": 9,
+    "medium": 9,
+    "low": 1
+  },
+  "findings": [
+    {
+      "file": "server.js",
+      "line": 55,
+      "rule": "js/command-line-injection",
+      "severity": "critical",
+      "scanner": "codeql",
+      "message": "This command line depends on a [user-provided value](1).",
+      "suggestion": ""
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2019-10744",
+      "severity": "critical",
+      "scanner": "dependabot",
+      "message": "lodash: Prototype Pollution in lodash",
+      "suggestion": "Upgrade lodash to >= 4.17.12"
+    },
+    {
+      "file": "server.js",
+      "line": 38,
+      "rule": "js/path-injection",
+      "severity": "high",
+      "scanner": "codeql",
+      "message": "This path depends on a [user-provided value](1).",
+      "suggestion": ""
+    },
+    {
+      "file": "server.js",
+      "line": 48,
+      "rule": "js/reflected-xss",
+      "severity": "high",
+      "scanner": "codeql",
+      "message": "Cross-site scripting vulnerability due to a [user-provided value](1).",
+      "suggestion": ""
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2026-4800",
+      "severity": "high",
+      "scanner": "dependabot",
+      "message": "lodash: lodash vulnerable to Code Injection via `_.template` imports key names",
+      "suggestion": "Upgrade lodash to >= 4.18.0"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "dependabot/serialize-javascript",
+      "severity": "high",
+      "scanner": "dependabot",
+      "message": "serialize-javascript: Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()",
+      "suggestion": "Upgrade serialize-javascript to >= 7.0.3"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2020-8203",
+      "severity": "high",
+      "scanner": "dependabot",
+      "message": "lodash: Prototype Pollution in lodash",
+      "suggestion": "Upgrade lodash to >= 4.17.19"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2022-31129",
+      "severity": "high",
+      "scanner": "dependabot",
+      "message": "moment: Moment.js vulnerable to Inefficient Regular Expression Complexity",
+      "suggestion": "Upgrade moment to >= 2.29.4"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2022-24785",
+      "severity": "high",
+      "scanner": "dependabot",
+      "message": "moment: Path Traversal: 'dir/../../filename' in moment.locale",
+      "suggestion": "Upgrade moment to >= 2.29.2"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2021-23337",
+      "severity": "high",
+      "scanner": "dependabot",
+      "message": "lodash: Command Injection in lodash",
+      "suggestion": "Upgrade lodash to >= 4.17.21"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2020-7660",
+      "severity": "high",
+      "scanner": "dependabot",
+      "message": "serialize-javascript: Insecure serialization leading to RCE in serialize-javascript",
+      "suggestion": "Upgrade serialize-javascript to >= 3.1.0"
+    },
+    {
+      "file": "server.js",
+      "line": 71,
+      "rule": "js/prototype-pollution",
+      "severity": "medium",
+      "scanner": "codeql",
+      "message": "Prototype pollution caused by merging a [user-controlled value](1) using a vulnerable version of [lodash](2).",
+      "suggestion": ""
+    },
+    {
+      "file": "server.js",
+      "line": 35,
+      "rule": "js/missing-rate-limiting",
+      "severity": "medium",
+      "scanner": "codeql",
+      "message": "This route handler performs [a file system access](1), but is not rate-limited.",
+      "suggestion": ""
+    },
+    {
+      "file": "server.js",
+      "line": 53,
+      "rule": "js/missing-rate-limiting",
+      "severity": "medium",
+      "scanner": "codeql",
+      "message": "This route handler performs [a system command](1), but is not rate-limited.",
+      "suggestion": ""
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2026-2950",
+      "severity": "medium",
+      "scanner": "dependabot",
+      "message": "lodash: lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+      "suggestion": "Upgrade lodash to >= 4.18.0"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2026-34043",
+      "severity": "medium",
+      "scanner": "dependabot",
+      "message": "serialize-javascript: Serialize JavaScript has CPU Exhaustion Denial of Service via crafted array-like objects",
+      "suggestion": "Upgrade serialize-javascript to >= 7.0.5"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2025-13465",
+      "severity": "medium",
+      "scanner": "dependabot",
+      "message": "lodash: Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+      "suggestion": "Upgrade lodash to >= 4.17.23"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2020-28500",
+      "severity": "medium",
+      "scanner": "dependabot",
+      "message": "lodash: Regular Expression Denial of Service (ReDoS) in lodash",
+      "suggestion": "Upgrade lodash to >= 4.17.21"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2024-29041",
+      "severity": "medium",
+      "scanner": "dependabot",
+      "message": "express: Express.js Open Redirect in malformed URLs",
+      "suggestion": "Upgrade express to >= 4.19.2"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2019-16769",
+      "severity": "medium",
+      "scanner": "dependabot",
+      "message": "serialize-javascript: Cross-Site Scripting in serialize-javascript",
+      "suggestion": "Upgrade serialize-javascript to >= 2.1.1"
+    },
+    {
+      "file": "demo-app/package.json",
+      "line": 0,
+      "rule": "CVE-2024-43796",
+      "severity": "low",
+      "scanner": "dependabot",
+      "message": "express: express vulnerable to XSS via response.redirect()",
+      "suggestion": "Upgrade express to >= 4.20.0"
+    }
+  ]
+}
