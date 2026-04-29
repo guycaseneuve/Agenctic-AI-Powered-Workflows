@@ -173,7 +173,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          FINDINGS=$(cat results/aggregated-findings.json)
+          # Truncate findings to 10000 chars to stay within model context
+          FINDINGS=$(cat results/aggregated-findings.json | head -c 10000)
           SCAN_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           # Load skill as system prompt
@@ -194,19 +195,21 @@ jobs:
             OUTPUT_TEMPLATE="Generate a security report with: Executive Summary, Findings by Severity, Remediation Priority, Auto-fix Summary."
           fi
 
-          # Build user message
-          USER_MSG="Analyze these security scan findings and generate a report.
+          # Build user message via file to avoid shell quoting issues
+          cat > /tmp/user_msg.txt <<ENDOFMSG
+          Analyze these security scan findings and generate a report.
 
           ${OUTPUT_TEMPLATE}
 
           Aggregated findings:
-          ${FINDINGS}"
+          ${FINDINGS}
+          ENDOFMSG
 
-          # Call GitHub Models API
+          # Call GitHub Models API — use jq --rawfile to safely handle content
           PAYLOAD=$(jq -n \
             --arg model "$MODEL" \
             --arg system "$SYSTEM_PROMPT" \
-            --arg user "$USER_MSG" \
+            --rawfile user /tmp/user_msg.txt \
             '{
               model: $model,
               messages: [
@@ -217,12 +220,19 @@ jobs:
               temperature: 0.2
             }')
 
-          RESPONSE=$(curl -sf https://models.github.ai/inference/chat/completions \
+          HTTP_CODE=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
+            https://models.github.ai/inference/chat/completions \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          REPORT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::GitHub Models API returned HTTP $HTTP_CODE"
+            cat /tmp/api_response.json
+            exit 1
+          fi
+
+          REPORT=$(jq -r '.choices[0].message.content' /tmp/api_response.json)
           printf '%s' "$REPORT" > results/security-report.md
           echo "Security report generated ($(wc -c < results/security-report.md) bytes)"
 
