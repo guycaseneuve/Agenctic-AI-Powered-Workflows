@@ -301,7 +301,7 @@ jobs:
 
           # Create branch and commit
           git checkout -b "$BRANCH"
-          git add -A
+          git add -A -- ':!demo-app/node_modules'
           git commit -m "security: auto-fix vulnerabilities from scan run ${{ github.run_id }}
 
           Applied:
