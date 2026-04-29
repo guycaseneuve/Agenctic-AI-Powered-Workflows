@@ -14,7 +14,7 @@ const API_KEY = "sk_live_4eC39HqLyjWDarjtT1zdp7dc";
 const DB_PASSWORD = "super_secret_password_123";
 
 // Simulated database query function
-function queryDatabase(sql, callback) {
+function queryDatabase (sql, callback) {
   // In a real app this would connect to a database
   callback(null, { rows: [], query: sql });
 }
