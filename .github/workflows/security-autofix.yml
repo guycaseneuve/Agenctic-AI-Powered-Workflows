@@ -331,6 +331,10 @@ jobs:
           $(cat results/security-report.md)"
           fi
 
+          # Ensure labels exist
+          gh label create "security" --repo "$REPO" --color "D93F0B" --description "Security-related" 2>/dev/null || true
+          gh label create "automated" --repo "$REPO" --color "0E8A16" --description "Automated PR" 2>/dev/null || true
+
           gh pr create \
             --repo "$REPO" \
             --base main \
@@ -384,6 +388,10 @@ jobs:
             BODY="${BODY}
           $(cat results/security-report.md)"
           fi
+
+          # Ensure labels exist
+          gh label create "security" --repo "$REPO" --color "D93F0B" --description "Security-related" 2>/dev/null || true
+          gh label create "critical" --repo "$REPO" --color "B60205" --description "Critical severity" 2>/dev/null || true
 
           gh issue create \
             --repo "$REPO" \
