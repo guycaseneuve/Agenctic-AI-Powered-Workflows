@@ -81,11 +81,11 @@ flowchart TD
 
 ## Key Benefits
 
-- **Shift-left security** , Catch vulnerabilities during development, not after deployment
-- **Continuous compliance** , Automatic audit trail on every change (SOC 2, FedRAMP, NIST)
-- **Zero friction** , Developers change nothing about their workflow
-- **Scalable** , Works the same for 5 developers or 500
-- **Customizable** , AI behavior, report format, and alert thresholds are all configurable
+- **Shift-left security** : Catch vulnerabilities during development, not after deployment
+- **Continuous compliance** : Automatic audit trail on every change (SOC 2, FedRAMP, NIST)
+- **Zero friction** : Developers change nothing about their workflow
+- **Scalable** : Works the same for 5 developers or 500
+- **Customizable** : AI behavior, report format, and alert thresholds are all configurable
 
 ---
 
