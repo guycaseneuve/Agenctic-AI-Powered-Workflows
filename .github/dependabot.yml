@@ -5,7 +5,9 @@
  
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "npm"
+    directory: "/demo-app"
     schedule:
       interval: "weekly"
+    # Disable automatic PRs — we handle dependency scanning in security-autofix.yml
+    open-pull-requests-limit: 0
