@@ -366,8 +366,11 @@ jobs:
           SAFE_TARGET=$(echo "$TARGET_BRANCH" | tr '/' '-')
           BRANCH="security/autofix-${SAFE_TARGET}"
 
-          # Check if there are any changes
-          if git diff --quiet && git diff --cached --quiet; then
+          # Only stage demo-app changes (fixes only, not results/)
+          git add demo-app/
+
+          # Check if there are any staged changes
+          if git diff --cached --quiet; then
             echo "No auto-fixable changes detected. Skipping PR creation."
             exit 0
           fi
@@ -392,8 +395,9 @@ jobs:
           if [ -n "$EXISTING_PR" ]; then
             echo "Found existing security PR #${EXISTING_PR}"
 
-            # Try to fetch the stored hash from the existing fix branch
-            PREVIOUS_HASH=$(git show "origin/${BRANCH}:results/.findings-hash" 2>/dev/null || echo "")
+            # Compare findings hash from the existing fix branch commit message
+            git fetch origin "$BRANCH" 2>/dev/null || true
+            PREVIOUS_HASH=$(git log "origin/${BRANCH}" -1 --format=%B 2>/dev/null | grep "^Findings-Hash:" | awk '{print $2}' || echo "")
 
             if [ "$CURRENT_HASH" = "$PREVIOUS_HASH" ]; then
               echo "No new vulnerabilities detected (hash unchanged). Skipping update."
@@ -403,19 +407,15 @@ jobs:
             echo "New vulnerabilities detected (hash changed). Updating existing PR."
           fi
 
-          # Store findings hash for future comparison
-          echo "$CURRENT_HASH" > results/.findings-hash
-
-          # Create/update branch and commit
+          # Create/update branch and commit (only demo-app/ changes)
           git checkout -B "$BRANCH"
-          git add -A
           git commit -m "security: auto-fix vulnerabilities from scan run ${{ github.run_id }}
 
           Applied:
           - npm audit fix (dependency upgrades)
           - eslint --fix (code style corrections)
 
-          See security report for full details."
+          Findings-Hash: ${CURRENT_HASH}"
 
           git push --force origin "$BRANCH"
 
