@@ -81,17 +81,17 @@ flowchart TD
 
 ## Key Benefits
 
-- **Shift-left security** — Catch vulnerabilities during development, not after deployment
-- **Continuous compliance** — Automatic audit trail on every change (SOC 2, FedRAMP, NIST)
-- **Zero friction** — Developers change nothing about their workflow
-- **Scalable** — Works the same for 5 developers or 500
-- **Customizable** — AI behavior, report format, and alert thresholds are all configurable
+- **Shift-left security** , Catch vulnerabilities during development, not after deployment
+- **Continuous compliance** , Automatic audit trail on every change (SOC 2, FedRAMP, NIST)
+- **Zero friction** , Developers change nothing about their workflow
+- **Scalable** , Works the same for 5 developers or 500
+- **Customizable** , AI behavior, report format, and alert thresholds are all configurable
 
 ---
 
 ## Data & Privacy
 
-- AI runs through **GitHub Models API** — code stays within GitHub's infrastructure
+- AI runs through **GitHub Models API** , code stays within GitHub's infrastructure
 - No code is stored or used for model training
 - Subject to GitHub's enterprise data protection policies
 
@@ -101,11 +101,11 @@ flowchart TD
 
 This PoC validates the concept. Before any production rollout, the following steps are needed:
 
-- **Gather feedback** — Identify what resonates, what needs adjustment, and any concerns
-- **Define scope** — Determine which repositories and teams would benefit first
-- **Plan improvements** — Refine AI behavior, alert thresholds, and reporting format based on team input
-- **Address prerequisites** — Ensure access, tokens, and permissions are in place (see Prerequisites document)
-- **Plan rollout timeline** — Align on phased implementation schedule with DevOps & Accenture teams
-- **Production hardening** — Review security, token management, and failure handling for production use
+- **Gather feedback** : Identify what resonates, what needs adjustment, and any concerns
+- **Define scope** : Determine which repositories and teams would benefit first
+- **Plan improvements** : Refine AI behavior, alert thresholds, and reporting format based on team input
+- **Address prerequisites** : Ensure access, tokens, and permissions are in place (see Prerequisites document)
+- **Plan rollout timeline** : Align on phased implementation schedule with DevOps & Accenture teams
+- **Production hardening** : Review security, token management, and failure handling for production use
 
 - Align on the next steps with DevOps Team & Accenture Team
