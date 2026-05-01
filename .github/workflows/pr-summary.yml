@@ -7,7 +7,7 @@
 #      (GitHub Models access is account-level, not a PAT scope)
 #   2. Store it as a repo secret named GH_PAT_TOKEN
 #   3. Push this file, create a branch, open a PR → summary appears automatically
-
+ 
 name: PR Summary
 
 on:
