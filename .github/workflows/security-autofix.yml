@@ -6,7 +6,7 @@
 #   1. GH_PAT_TOKEN secret with scopes: repo, workflow, security_events
 #   2. SLACK_WEBHOOK_URL secret (optional — for Slack alerts)
 #   3. GitHub Models access enabled on the PAT account
-
+ 
 name: Security Autofix
 
 on:
