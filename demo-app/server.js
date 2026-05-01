@@ -6,6 +6,13 @@ const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
 const _ = require("lodash");
+const jwt = require("jsonwebtoken");
+const ejs = require("ejs");
+const marked = require("marked");
+const yaml = require("js-yaml");
+const axios = require("axios");
+const forge = require("node-forge");
+const minimist = require("minimist");
 
 const app = express();
 
@@ -71,6 +78,70 @@ app.get("/api/merge", (req, res) => {
   const merged = _.defaultsDeep({}, userInput, defaults);
   res.json(merged);
 });
+
+// ❌ CodeQL: js/insecure-jwt + npm audit: jsonwebtoken@8.3.0 (CVE-2022-23529)
+// Sign tokens with a weak secret; verify without algorithm restriction
+app.post("/api/token", (req, res) => {
+  const username = req.body.username;
+  const token = jwt.sign({ user: username, admin: true }, "secret");
+  res.json({ token });
+});
+
+app.get("/api/verify-token", (req, res) => {
+  const token = req.query.token;
+  // Verify without specifying algorithms — allows algorithm confusion attacks
+  const decoded = jwt.verify(token, "secret");
+  res.json(decoded);
+});
+
+// ❌ CodeQL: js/code-injection + npm audit: ejs@2.7.4 (CVE-2022-29078)
+// User input passed directly as EJS template — server-side template injection
+app.get("/api/render", (req, res) => {
+  const template = req.query.template;
+  const data = req.query.data || "World";
+  const output = ejs.render(template, { name: data });
+  res.send(output);
+});
+
+// ❌ CodeQL: js/xss + npm audit: marked@0.3.6 (CVE-2017-1000427)
+// Render user-supplied markdown without sanitization
+app.get("/api/preview", (req, res) => {
+  const markdown = req.query.md;
+  const html = marked(markdown);
+  res.send("<html><body>" + html + "</body></html>");
+});
+
+// ❌ CodeQL: js/code-injection + npm audit: js-yaml@3.13.0
+// Using yaml.load() (unsafe) instead of yaml.safeLoad() on user input
+app.post("/api/parse-yaml", (req, res) => {
+  const content = req.body.content;
+  const parsed = yaml.load(content);
+  res.json(parsed);
+});
+
+// ❌ CodeQL: js/request-forgery + npm audit: axios@0.21.0 (CVE-2021-3749)
+// Fetch user-supplied URL without validation — SSRF vulnerability
+app.get("/api/fetch", (req, res) => {
+  const url = req.query.url;
+  axios.get(url).then((response) => {
+    res.json({ status: response.status, data: response.data });
+  }).catch((err) => {
+    res.status(500).json({ error: err.message });
+  });
+});
+
+// ❌ npm audit: node-forge@0.9.0 (CVE-2022-24771, CVE-2022-24772)
+// Generate RSA key pair with weak parameters
+app.get("/api/generate-key", (req, res) => {
+  const keypair = forge.pki.rsa.generateKeyPair({ bits: 512 });
+  const publicKeyPem = forge.pki.publicKeyToPem(keypair.publicKey);
+  res.json({ publicKey: publicKeyPem });
+});
+
+// ❌ npm audit: minimist@0.0.8 (CVE-2020-7598) — prototype pollution
+// Parse arbitrary arguments — demonstrates transitive dependency vulnerability
+const args = minimist(process.argv.slice(2));
+console.log("Parsed CLI args:", args);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
