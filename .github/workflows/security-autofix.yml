@@ -135,17 +135,22 @@ jobs:
           ]' /tmp/npm-audit-raw.json > /tmp/npm-audit-parsed.json 2>/dev/null || echo "[]" > /tmp/npm-audit-parsed.json
 
           # Convert to Dependabot-compatible format for the aggregate script
+          # Must match GitHub Dependabot API schema expected by aggregate_findings.py:
+          #   - security_advisory.identifiers: [{type: "CVE", value: "CVE-..."}]
+          #   - security_vulnerability.first_patched_version: {identifier: "1.2.3"} or null
           jq '[.[] | {
             security_advisory: {
               summary: (.via[0].title // "Vulnerability in \(.name)"),
               severity: .severity,
-              cve_id: null,
+              identifiers: [.via[] | select(.url) | {type: "CVE", value: (.url | split("/") | last)}],
+              description: (.via[0].title // ""),
               references: [.via[] | select(.url) | {url: .url}]
             },
             security_vulnerability: {
+              severity: .severity,
               package: {name: .name, ecosystem: "npm"},
               vulnerable_version_range: .range,
-              first_patched_version: (if .fix_available then "available" else null end)
+              first_patched_version: (if .fix_available then {identifier: "latest"} else null end)
             },
             state: "open",
             dependency: {
