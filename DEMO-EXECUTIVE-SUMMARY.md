@@ -1,5 +1,7 @@
 # AI-Powered DevOps Automation — Executive Summary
 
+> **Important:** What you are seeing today is a **Proof of Concept (PoC)**. This demonstrates the capabilities and potential value of AI-powered automation in our development workflow. It is **not production-ready** and is not intended for immediate rollout. There is room for refinement, additional configuration, and planning before any implementation into live environments.
+
 ## What We Built
 
 Two AI-powered capabilities that run automatically inside the development workflow — requiring zero additional effort from developers:
@@ -38,8 +40,8 @@ flowchart LR
 ```mermaid
 flowchart TD
     A[Code change detected] --> B[Stage 1: Detect]
-    B --> C[Static Analysis — SAST]
-    B --> D[Dependency Scan — SCA]
+    B --> C[Code QL Analysis — SAST]
+    B --> D[Dependabot Dependency Scan - SCA]
     C --> E[Stage 2: Analyze]
     D --> E
     E --> F[AI generates prioritized report]
@@ -97,6 +99,13 @@ flowchart TD
 
 ## Next Steps
 
-- Review the live demo results in the repository
-- Discuss rollout scope (which repositories, which teams)
-- Confirm notification preferences (Slack channels, issue assignment)
+This PoC validates the concept. Before any production rollout, the following steps are needed:
+
+- **Gather feedback** — Identify what resonates, what needs adjustment, and any concerns
+- **Define scope** — Determine which repositories and teams would benefit first
+- **Plan improvements** — Refine AI behavior, alert thresholds, and reporting format based on team input
+- **Address prerequisites** — Ensure access, tokens, and permissions are in place (see Prerequisites document)
+- **Plan rollout timeline** — Align on phased implementation schedule with DevOps & Accenture teams
+- **Production hardening** — Review security, token management, and failure handling for production use
+
+- Align on the next steps with DevOps Team & Accenture Team
