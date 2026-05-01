@@ -7,7 +7,7 @@
 # # Prerequisites:
 # #   1. GH_PAT_TOKEN secret with scopes: repo, workflow
 # #   2. GitHub Models access enabled on the PAT account
- 
+  
 # name: Incident Postmortem
 
 # on:
