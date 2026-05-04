@@ -1,4 +1,4 @@
-# pr-summary
+# Agenctic-AI-Powered-Workflows
 
 Hello World test repo for the PR Auto-Summary workflow.
 
