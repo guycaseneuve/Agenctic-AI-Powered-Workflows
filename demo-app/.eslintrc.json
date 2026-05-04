@@ -16,5 +16,13 @@
     "space-before-function-paren": ["error", "always"],
     "keyword-spacing": ["error", { "before": true, "after": true }],
     "prefer-const": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["__tests__/**/*.js"],
+      "env": {
+        "jest": true
+      }
+    }
+  ]
 }
