@@ -23,18 +23,6 @@ Two AI-powered capabilities that run automatically inside the development workfl
 
 ---
 
-## Why It Matters
-
-| Challenge | How This Solves It |
-|-----------|--------------------|
-| Security vulnerabilities ship undetected | Every change is scanned automatically — issues are caught before they reach production |
-| Fixing issues after deployment costs 10–100x more | Vulnerabilities are identified and remediated during development, not after |
-| Compliance requires evidence of continuous scanning | Audit-ready reports are generated automatically on every change |
-| Code reviewers lack context on what changed | AI writes a structured summary instantly — no waiting for developers to document |
-| Manual security reviews are slow and inconsistent | Two scanning engines run in parallel on every change, every time, without exception |
-
----
-
 ## How It Works — Trigger Modes
 
 The automation supports three distinct trigger modes, each suited to different scenarios. All modes run the same Security Autofix Pipeline and AI PR Summary logic — only the entry point differs.
@@ -176,6 +164,17 @@ flowchart TD
 
 ---
 
+## Why It Matters
+
+| Challenge | How This Solves It |
+|-----------|--------------------|
+| Security vulnerabilities ship undetected | Every change is scanned automatically — issues are caught before they reach production |
+| Fixing issues after deployment costs 10–100x more | Vulnerabilities are identified and remediated during development, not after |
+| Compliance requires evidence of continuous scanning | Audit-ready reports are generated automatically on every change |
+| Code reviewers lack context on what changed | AI writes a structured summary instantly — no waiting for developers to document |
+| Manual security reviews are slow and inconsistent | Two scanning engines run in parallel on every change, every time, without exception |
+
+---
 ## Business Impact
 
 | Metric | Before | After |
