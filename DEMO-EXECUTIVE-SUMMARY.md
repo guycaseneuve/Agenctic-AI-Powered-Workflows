@@ -67,6 +67,115 @@ flowchart TD
 
 ---
 
+## How It Works — Trigger Modes
+
+The automation supports three distinct trigger modes, each suited to different scenarios. All modes run the same Security Autofix Pipeline and AI PR Summary logic — only the entry point differs.
+
+---
+
+### Trigger 1 — Manual Run on Main Branch
+
+> A team member or release manager manually kicks off the pipeline against the `main` branch — useful for on-demand audits, compliance checks, or before a major release.
+
+```mermaid
+flowchart LR
+    A([👤 Team Member]) -->|Clicks 'Run workflow'| B[GitHub Actions\nManual Dispatch]
+    B --> C{Target Branch\nmain}
+    C --> D[Security Scan\nCodeQL + Dependabot]
+    C --> E[AI PR Summary\nof latest changes]
+    D --> F{Issues found?}
+    F -->|Yes| G[AI Report +\nAuto-Fix PR +\nAlert Team]
+    F -->|No| H[✅ Clean — report logged]
+    E --> I[Summary posted\nas PR comment / issue]
+
+    style A fill:#0078d4,color:#fff
+    style B fill:#24292e,color:#fff
+    style G fill:#d73a49,color:#fff
+    style H fill:#28a745,color:#fff
+```
+
+| Step | Description |
+|------|-------------|
+| Trigger | Manually initiated via GitHub Actions "Run workflow" button |
+| Branch | Targets `main` (configurable) |
+| Output | Security report + auto-fix PR (if needed) + AI summary |
+| Use case | Pre-release audit, compliance snapshot, ad-hoc security review |
+
+---
+
+### Trigger 2 — Automatic Scheduled Run on Defined Branch
+
+> The pipeline runs automatically on a schedule (e.g., nightly or weekly) against a defined branch — ensuring continuous coverage even without any developer action.
+
+```mermaid
+flowchart LR
+    A([🕐 Scheduler\ncron / schedule]) -->|Fires automatically| B[GitHub Actions\nScheduled Trigger]
+    B --> C{Target Branch\ne.g. develop / release}
+    C --> D[Security Scan\nCodeQL + Dependabot]
+    C --> E[AI Delta Summary\nsince last run]
+    D --> F{New issues\nsince last scan?}
+    F -->|Yes| G[AI Report +\nAuto-Fix PR +\nAlert Team]
+    F -->|No| H[✅ No new issues —\nreport archived]
+    E --> I[Summary stored\nin audit log]
+
+    style A fill:#6f42c1,color:#fff
+    style B fill:#24292e,color:#fff
+    style G fill:#d73a49,color:#fff
+    style H fill:#28a745,color:#fff
+```
+
+| Step | Description |
+|------|-------------|
+| Trigger | Cron schedule (e.g., every night at midnight, every Monday) |
+| Branch | Any defined branch — `develop`, `release/*`, `main` |
+| Output | Security delta report + auto-fix PR (if new issues) + AI summary |
+| Use case | Continuous compliance monitoring, zero-effort weekly audits |
+
+---
+
+### Trigger 3 — Incoming Pull Request on Defined Branch
+
+> Every time a developer opens or updates a pull request targeting a defined branch, the pipeline fires automatically — catching issues before the code is merged.
+
+```mermaid
+flowchart LR
+    A([👤 Developer]) -->|Opens or updates PR| B[Pull Request\ntargeting defined branch]
+    B --> C[GitHub Actions\nPR Trigger]
+    C --> D[Security Scan\non changed files]
+    C --> E[AI PR Summary\nauto-generated]
+    D --> F{Vulnerabilities\ndetected?}
+    F -->|Yes| G[AI Report +\nAuto-Fix PR +\nPR Comment + Alert]
+    F -->|No| H[✅ Clean bill of health\nposted on PR]
+    E --> I[Structured summary\nposted to PR description]
+
+    style A fill:#0078d4,color:#fff
+    style B fill:#24292e,color:#fff
+    style G fill:#d73a49,color:#fff
+    style H fill:#28a745,color:#fff
+```
+
+| Step | Description |
+|------|-------------|
+| Trigger | PR opened, updated, or synchronized against a protected branch |
+| Branch | Any configured target branch (e.g., `main`, `develop`) |
+| Output | Security report + auto-fix PR + AI-written PR description |
+| Use case | Standard development flow — every code change is reviewed before merge |
+
+---
+
+### Trigger Mode Comparison
+
+| | Manual (Main) | Scheduled (Branch) | Incoming PR |
+|---|---|---|---|
+| **Who initiates** | Team member | Automated scheduler | Developer (via PR) |
+| **When it runs** | On demand | Fixed schedule (cron) | Every PR open / update |
+| **Primary use case** | Audit, pre-release | Continuous compliance | Day-to-day dev workflow |
+| **AI PR Summary** | Latest changes on branch | Delta since last run | Changes in the PR |
+| **Auto-Fix PR** | Yes, if issues found | Yes, if new issues | Yes, if issues found |
+| **Alert sent** | Yes, on critical findings | Yes, on new critical findings | Yes, on critical findings |
+
+---
+
 ## Business Impact
 
 | Metric | Before | After |
