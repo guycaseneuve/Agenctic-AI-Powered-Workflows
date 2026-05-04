@@ -13,9 +13,9 @@ name: "CodeQL Advanced"
  
 on:
   push:
-    branches: [ "devops/gcaseneuve/prep-for-demo" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "devops/gcaseneuve/prep-for-demo" ]
+    branches: [ "main" ]
   schedule:
     - cron: '37 22 * * 2'
 
