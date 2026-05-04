@@ -213,8 +213,4 @@ This PoC validates the concept. Before any production rollout, the following ste
 - **Gather feedback** : Identify what resonates, what needs adjustment, and any concerns
 - **Define scope** : Determine which repositories and teams would benefit first
 - **Plan improvements** : Refine AI behavior, alert thresholds, and reporting format based on team input
-- **Address prerequisites** : Ensure access, tokens, and permissions are in place (see Prerequisites document)
-- **Plan rollout timeline** : Align on phased implementation schedule with DevOps & Accenture teams
-- **Production hardening** : Review security, token management, and failure handling for production use
 
-- Align on the next steps with DevOps Team & Accenture Team
