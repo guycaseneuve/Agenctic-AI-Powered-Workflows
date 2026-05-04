@@ -458,7 +458,7 @@ jobs:
         working-directory: demo-app
         run: |
           set -euo pipefail
-          echo "Installing dependencies on fix branch..."
+          echo "Installing dependencies (including jest + supertest)..."
           npm install
 
           echo "Running lint check..."
@@ -471,12 +471,17 @@ jobs:
             echo "::warning::${POST_C} critical vulnerabilities remain after ${PASSES} fix passes — manual remediation required (see PR body for details)"
           }
 
-          if grep -q '"test"' package.json; then
-            echo "Running tests..."
-            npm test
-          else
-            echo "No test script defined — skipping tests"
-          fi
+          echo "Running build check (syntax validation)..."
+          npm run build || {
+            echo "::error::Build failed — auto-fix introduced a syntax error. PR creation aborted."
+            exit 1
+          }
+
+          echo "Running tests..."
+          npm test || {
+            echo "::error::Tests failed after auto-fix was applied. PR creation aborted to prevent merging broken code."
+            exit 1
+          }
 
           echo "✅ Build and test passed on fix branch"
 

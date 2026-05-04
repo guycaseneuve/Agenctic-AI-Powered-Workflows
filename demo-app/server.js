@@ -144,7 +144,13 @@ const args = minimist(process.argv.slice(2));
 console.log("Parsed CLI args:", args);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Demo app listening on port ${PORT}`);
-  console.log(`API Key: ${API_KEY}`); // ❌ Logging credentials
-});
+
+// Only start the HTTP server when run directly (not when imported by tests)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Demo app listening on port ${PORT}`);
+    console.log(`API Key: ${API_KEY}`); // ❌ Logging credentials
+  });
+}
+
+module.exports = app;

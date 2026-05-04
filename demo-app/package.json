@@ -5,8 +5,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "node --check server.js && node --check utils.js",
+    "test": "jest --testTimeout=10000 --forceExit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "forceExit": true,
+    "testMatch": ["**/__tests__/**/*.test.js"]
   },
   "dependencies": {
     "axios": "0.21.0",
@@ -22,6 +29,8 @@
     "serialize-javascript": "1.7.0"
   },
   "devDependencies": {
-    "eslint": "^8.50.0"
+    "eslint": "^8.50.0",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.4"
   }
 }
