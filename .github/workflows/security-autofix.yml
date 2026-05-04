@@ -24,6 +24,8 @@ on:
         options:
           - "openai/gpt-4o-mini"
           - "openai/gpt-4o"
+          - "anthropic/claude-3-5-sonnet"
+          - "anthropic/claude-opus-4-5"
 
 permissions:
   contents: write
@@ -287,21 +289,49 @@ jobs:
               temperature: 0.2
             }')
 
-          HTTP_CODE=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
-            https://models.github.ai/inference/chat/completions \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD")
+          # Call GitHub Models API with retry-on-rate-limit (HTTP 429)
+          MAX_RETRIES=3
+          ATTEMPT=0
+          HTTP_CODE="000"
+          while [ $ATTEMPT -lt $MAX_RETRIES ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "API call attempt ${ATTEMPT}/${MAX_RETRIES} (model: ${MODEL})..."
 
-          if [ "$HTTP_CODE" -ne 200 ]; then
-            echo "::error::GitHub Models API returned HTTP $HTTP_CODE"
+            HTTP_CODE=$(curl -s -o /tmp/api_response.json -w "%{http_code}" \
+              -D /tmp/api_headers.txt \
+              https://models.github.ai/inference/chat/completions \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD")
+
+            if [ "$HTTP_CODE" -eq 200 ]; then
+              echo "API call succeeded on attempt ${ATTEMPT}."
+              break
+            fi
+
+            if [ "$HTTP_CODE" -eq 429 ]; then
+              # Respect Retry-After header; default to 60s if absent
+              RETRY_AFTER=$(grep -i "^retry-after:" /tmp/api_headers.txt 2>/dev/null | awk '{print $2}' | tr -d '\r' || echo "")
+              WAIT=${RETRY_AFTER:-60}
+              echo "::warning::Rate limited (HTTP 429) on attempt ${ATTEMPT}. Waiting ${WAIT}s before retry..."
+              sleep "$WAIT"
+              continue
+            fi
+
+            # Non-retryable error (4xx other than 429, 5xx)
+            echo "::error::GitHub Models API returned HTTP $HTTP_CODE — verify model ID: ${MODEL}"
             cat /tmp/api_response.json
             exit 1
-          fi
+          done
 
-          REPORT=$(jq -r '.choices[0].message.content' /tmp/api_response.json)
-          printf '%s' "$REPORT" > results/security-report.md
-          echo "Security report generated ($(wc -c < results/security-report.md) bytes)"
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::GitHub Models API still rate-limited after ${MAX_RETRIES} attempts (HTTP ${HTTP_CODE}). Skipping report generation."
+            echo "_(AI report unavailable — rate limit exceeded after ${MAX_RETRIES} retries)_" > results/security-report.md
+          else
+            REPORT=$(jq -r '.choices[0].message.content' /tmp/api_response.json)
+            printf '%s' "$REPORT" > results/security-report.md
+            echo "Security report generated ($(wc -c < results/security-report.md) bytes)"
+          fi
 
       - name: Upload aggregated results
         uses: actions/upload-artifact@v4
@@ -340,17 +370,79 @@ jobs:
           name: security-report
           path: results/
 
-      - name: Run npm audit fix
+      - name: Run npm audit fix (multi-pass)
         working-directory: demo-app
         run: |
           set -euo pipefail
           echo "Installing dependencies..."
           npm install --ignore-scripts 2>/dev/null || true
 
-          echo "Running npm audit fix..."
-          npm audit fix --force 2>&1 | tee /tmp/audit-fix-output.txt || true
+          # Capture pre-fix state
+          npm audit --json > /tmp/pre-fix-audit.json 2>/dev/null || true
+          PRE_CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' /tmp/pre-fix-audit.json 2>/dev/null || echo "0")
+          PRE_HIGH=$(jq '.metadata.vulnerabilities.high // 0' /tmp/pre-fix-audit.json 2>/dev/null || echo "0")
+          PRE_TOTAL=$(jq '.metadata.vulnerabilities.total // 0' /tmp/pre-fix-audit.json 2>/dev/null || echo "0")
+          echo "Pre-fix: critical=${PRE_CRITICAL} high=${PRE_HIGH} total=${PRE_TOTAL}"
 
-          echo "npm audit fix complete"
+          # Iterative fix loop — max 3 passes, exit early on zero or plateau
+          PREV_COUNT=$((PRE_CRITICAL + PRE_HIGH + 1))
+          PASS=0
+          while [ $PASS -lt 3 ]; do
+            PASS=$((PASS + 1))
+            echo "--- npm audit fix pass ${PASS}/3 ---"
+            npm audit fix --force 2>&1 | tee /tmp/audit-fix-pass-${PASS}.txt || true
+            npm install --ignore-scripts 2>/dev/null || true
+            npm audit --json > /tmp/post-fix-audit-${PASS}.json 2>/dev/null || true
+            CURR_CRITICAL=$(jq '.metadata.vulnerabilities.critical // 0' /tmp/post-fix-audit-${PASS}.json 2>/dev/null || echo "0")
+            CURR_HIGH=$(jq '.metadata.vulnerabilities.high // 0' /tmp/post-fix-audit-${PASS}.json 2>/dev/null || echo "0")
+            CURR_COUNT=$((CURR_CRITICAL + CURR_HIGH))
+            echo "Pass ${PASS} result: critical=${CURR_CRITICAL} high=${CURR_HIGH}"
+            if [ "$CURR_COUNT" -eq 0 ]; then
+              echo "All critical/high vulnerabilities resolved after pass ${PASS}."
+              break
+            fi
+            if [ "$CURR_COUNT" -ge "$PREV_COUNT" ]; then
+              echo "No improvement after pass ${PASS} (${CURR_COUNT} >= ${PREV_COUNT}). Stopping early."
+              break
+            fi
+            PREV_COUNT=$CURR_COUNT
+          done
+
+          # Copy final snapshot for delta computation
+          cp /tmp/post-fix-audit-${PASS}.json /tmp/post-fix-audit.json
+
+          # Build audit delta JSON
+          mkdir -p ../results
+          jq -n \
+            --argjson pre "$(cat /tmp/pre-fix-audit.json)" \
+            --argjson post "$(cat /tmp/post-fix-audit.json)" \
+            --argjson passes "$PASS" \
+            '{
+              passes: $passes,
+              pre_fix: {
+                critical: ($pre.metadata.vulnerabilities.critical // 0),
+                high: ($pre.metadata.vulnerabilities.high // 0),
+                medium: ($pre.metadata.vulnerabilities.medium // 0),
+                low: ($pre.metadata.vulnerabilities.low // 0),
+                total: ($pre.metadata.vulnerabilities.total // 0)
+              },
+              post_fix: {
+                critical: ($post.metadata.vulnerabilities.critical // 0),
+                high: ($post.metadata.vulnerabilities.high // 0),
+                medium: ($post.metadata.vulnerabilities.medium // 0),
+                low: ($post.metadata.vulnerabilities.low // 0),
+                total: ($post.metadata.vulnerabilities.total // 0)
+              },
+              fixed: {
+                critical: (($pre.metadata.vulnerabilities.critical // 0) - ($post.metadata.vulnerabilities.critical // 0)),
+                high: (($pre.metadata.vulnerabilities.high // 0) - ($post.metadata.vulnerabilities.high // 0)),
+                total: (($pre.metadata.vulnerabilities.total // 0) - ($post.metadata.vulnerabilities.total // 0))
+              },
+              remaining_packages: [($post.vulnerabilities // {}) | to_entries[] | select(.value.severity == "critical" or .value.severity == "high") | {name: .key, severity: .value.severity, fix_available: (.value.fixAvailable // false)}]
+            }' > ../results/audit-delta.json 2>/dev/null || echo '{"error":"delta computation failed"}' > ../results/audit-delta.json
+
+          echo "Audit delta saved ($(wc -c < ../results/audit-delta.json) bytes)"
+          echo "npm audit fix complete (${PASS} passes)"
 
       - name: Run ESLint fix
         working-directory: demo-app
@@ -371,7 +463,11 @@ jobs:
           npx eslint . || echo "::warning::Lint issues remain after auto-fix"
 
           echo "Running npm audit (post-fix)..."
-          npm audit --audit-level=critical || echo "::warning::Critical vulnerabilities still present after fix"
+          npm audit --audit-level=critical || {
+            POST_C=$(jq '.post_fix.critical // "unknown"' ../results/audit-delta.json 2>/dev/null || echo "unknown")
+            PASSES=$(jq '.passes // 1' ../results/audit-delta.json 2>/dev/null || echo "?")
+            echo "::warning::${POST_C} critical vulnerabilities remain after ${PASSES} fix passes — manual remediation required (see PR body for details)"
+          }
 
           if grep -q '"test"' package.json; then
             echo "Running tests..."
@@ -447,6 +543,23 @@ jobs:
           git push --force origin "$BRANCH"
 
           # Build PR body from security report
+          PASSES=$(jq '.passes // 1' results/audit-delta.json 2>/dev/null || echo "1")
+          PRE_C=$(jq '.pre_fix.critical // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          PRE_H=$(jq '.pre_fix.high // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          PRE_T=$(jq '.pre_fix.total // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          POST_C=$(jq '.post_fix.critical // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          POST_H=$(jq '.post_fix.high // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          POST_T=$(jq '.post_fix.total // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          FIX_C=$(jq '.fixed.critical // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          FIX_H=$(jq '.fixed.high // 0' results/audit-delta.json 2>/dev/null || echo "?")
+          FIX_T=$(jq '.fixed.total // 0' results/audit-delta.json 2>/dev/null || echo "?")
+
+          # Remaining dep vulns that could not be auto-fixed
+          REMAINING_PKGS=$(jq -r '.remaining_packages[]? | "- `\(.name)` (\(.severity))" + if .fix_available == false then " — no patch available" else " — requires manual major-version upgrade" end' results/audit-delta.json 2>/dev/null || echo "")
+
+          # CodeQL code-level findings (require source code changes)
+          CODEQL_SECTION=$(jq -r '[.findings[]? | select((.scanner // "") | test("codeql"))] | if length > 0 then "### Code-Level Findings (Not Auto-Fixable)\n\nThe following require source code changes — `npm audit fix` and `eslint --fix` do not address them:\n\n" + (map("- **\(.severity | ascii_upcase)** `\(.rule)` in `\(.file // \"unknown\"):\(.line // \"?\")` — \(.message // .rule)") | join("\n")) else empty end' results/aggregated-findings.json 2>/dev/null || echo "")
+
           PR_BODY="## Security Auto-fix
 
           This PR was automatically generated by the security-autofix pipeline.
@@ -455,9 +568,34 @@ jobs:
           **Target branch:** \`${TARGET_BRANCH}\`
 
           ### Changes Applied
-          - \`npm audit fix\` — upgraded vulnerable dependencies
+          - \`npm audit fix --force\` (${PASSES} passes) — upgraded vulnerable dependencies
           - \`eslint --fix\` — corrected code style issues
 
+          ### Dependency Vulnerability Delta
+          | Severity | Before | After | Fixed |
+          |----------|--------|-------|-------|
+          | Critical | ${PRE_C} | ${POST_C} | ${FIX_C} |
+          | High | ${PRE_H} | ${POST_H} | ${FIX_H} |
+          | **Total** | **${PRE_T}** | **${POST_T}** | **${FIX_T}** |
+          "
+
+          if [ -n "$REMAINING_PKGS" ]; then
+            PR_BODY="${PR_BODY}
+          ### Manual Remediation Required (Dependencies)
+
+          The following critical/high dependency vulnerabilities could not be resolved automatically:
+
+          ${REMAINING_PKGS}
+          "
+          fi
+
+          if [ -n "$CODEQL_SECTION" ]; then
+            PR_BODY="${PR_BODY}
+          ${CODEQL_SECTION}
+          "
+          fi
+
+          PR_BODY="${PR_BODY}
           ---
           "
 
@@ -488,6 +626,14 @@ jobs:
               --label "security,automated"
             echo "✅ Auto-fix PR created targeting ${TARGET_BRANCH}"
           fi
+
+      - name: Upload audit delta artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-delta
+          path: results/audit-delta.json
+          retention-days: 30
 
   # ─────────────────────────────────────────────
   # Job 5: Notify (Issue + Slack)
