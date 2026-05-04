@@ -1,10 +1,10 @@
 # AI-Powered DevOps Automation — Executive Summary
 
-> **Important:** What you are seeing today is a **Proof of Concept (PoC)**. This demonstrates the capabilities and potential value of AI-powered automation in our development workflow. It is **not production-ready** and is not intended for immediate rollout. There is room for refinement, additional configuration, and planning before any implementation into live environments.
+> **Important:** What you are seeing today is a **Proof of Concept (PoC)**. This demonstrates the capabilities and potential value of Agentic-AI-Powered automation in our development workflow. It is **not production-ready** and is not intended for immediate rollout. There is room for refinement, additional configuration, and planning before any implementation into live environments.
 
 ## What We Built
 
-Two AI-powered capabilities that run automatically inside the development workflow — requiring zero additional effort from developers:
+Two Agentic-AI-Powered capabilities that run automatically inside the development workflow — requiring zero additional effort from developers:
 
 1. **Security Autofix Pipeline** — Continuously scans every code change for vulnerabilities, generates a prioritized report, auto-fixes what it can, and alerts the team immediately.
 2. **AI Pull Request Summaries** — Automatically writes a clear description of every code change: what was modified, why it matters, and how to validate it.
