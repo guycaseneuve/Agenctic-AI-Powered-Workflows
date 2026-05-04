@@ -9,6 +9,8 @@ Many development teams still rely on processes that are manual, inconsistent, an
 - **Current-state challenge:** Code reviews are manual, security scans are ad hoc, and documentation is inconsistent.
 - **Security risk:** Vulnerabilities are often discovered too late, increasing exposure and making remediation more expensive.
 - **Review friction:** Reviewers do not always have clear context on what changed, why it changed, and how to validate it.
+- **Compliance gap:** Teams struggle to produce consistent evidence that security checks are happening continuously.
+- **Business impact:** These gaps lead to slower reviews, higher remediation cost, and greater operational risk.
 
 Security issues are easier and cheaper to address during development than after release, but without automation, scanning and documentation depend too heavily on individual effort and timing.
 
