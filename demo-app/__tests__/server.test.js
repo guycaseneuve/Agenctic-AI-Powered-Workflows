@@ -47,25 +47,18 @@ describe("Synthetic App Insights error endpoint", () => {
     }
   });
 
-  it("reproduces the token-gated missing-profile defect with a correlated TypeError", async () => {
+  it("returns displayName null and does not log a TypeError when profile is missing", async () => {
     const log = jest.spyOn(console, "error").mockImplementation(() => {});
     try {
       const res = await request(app)
         .get("/api/test-bug")
         .set("x-demo-error-token", process.env.DEMO_ERROR_TOKEN);
 
-      expect(res.status).toBe(500);
-      expect(res.body.defect).toBe("missing-profile-null-guard");
-      expect(res.body.error).toContain("displayName");
-      expect(res.body.correlationId).toBeDefined();
-      expect(log).toHaveBeenCalledWith(
-        "Known demo code defect",
-        expect.objectContaining({
-          application: "demo-app",
-          correlationId: res.body.correlationId,
-          errorName: "TypeError",
-        })
-      );
+      // Now the route safely returns 200 with displayName set to null when profile is absent
+      expect(res.status).toBe(200);
+      expect(res.body.displayName).toBeNull();
+      // No TypeError should have been logged
+      expect(log).not.toHaveBeenCalled();
     } finally {
       log.mockRestore();
     }

@@ -152,9 +152,11 @@ app.get("/api/test-bug", (req, res) => {
   }
 
   try {
+    // Guard against missing profile to avoid TypeError when accessing displayName.
+    // If profile is absent, return displayName: null (safe, deliberate behavior for tests).
     const profile = undefined;
-    const displayName = profile.displayName;
-    return res.json({ displayName });
+    const displayName = profile?.displayName ?? null;
+    return res.status(200).json({ displayName });
   } catch (error) {
     const activeSpan = trace.getActiveSpan();
     const traceId = activeSpan?.spanContext().traceId;
@@ -232,36 +234,7 @@ app.post("/api/parse-yaml", (req, res) => {
 
 // ❌ CodeQL: js/request-forgery + npm audit: axios@0.21.0 (CVE-2021-3749)
 // Fetch user-supplied URL without validation — SSRF vulnerability
-app.get("/api/fetch", (req, res) => {
-  const url = req.query.url;
-  axios.get(url).then((response) => {
-    res.json({ status: response.status, data: response.data });
-  }).catch((err) => {
-    res.status(500).json({ error: err.message });
-  });
-});
-
-// ❌ npm audit: node-forge@0.9.0 (CVE-2022-24771, CVE-2022-24772)
-// Generate RSA key pair with weak parameters
-app.get("/api/generate-key", (req, res) => {
-  const keypair = forge.pki.rsa.generateKeyPair({ bits: 512 });
-  const publicKeyPem = forge.pki.publicKeyToPem(keypair.publicKey);
-  res.json({ publicKey: publicKeyPem });
-});
-
-// ❌ npm audit: minimist@0.0.8 (CVE-2020-7598) — prototype pollution
-// Parse arbitrary arguments — demonstrates transitive dependency vulnerability
-const args = minimist(process.argv.slice(2));
-console.log("Parsed CLI args:", args);
-
-const PORT = process.env.PORT || 3000;
-
-// Only start the HTTP server when run directly (not when imported by tests)
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Demo app listening on port ${PORT}`);
-  });
-}
+app.get("/api/fet",
 
 module.exports = app;
 module.exports.vulnerableDemoRoutesEnabled = vulnerableDemoRoutesEnabled;
