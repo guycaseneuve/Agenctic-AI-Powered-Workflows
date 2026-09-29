@@ -8,6 +8,7 @@
  */
 
 const request = require("supertest");
+process.env.DEMO_ERROR_TOKEN ||= "unit-test-demo-error-token";
 const app = require("../server");
 
 describe("Health check", () => {
@@ -16,6 +17,64 @@ describe("Health check", () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("ok");
     expect(res.body.timestamp).toBeDefined();
+  });
+});
+
+describe("Synthetic App Insights error endpoint", () => {
+  it("requires the configured test token", async () => {
+    const res = await request(app).get("/api/test-error");
+    expect(res.status).toBe(401);
+  });
+
+  it("returns a correlated synthetic 500 when authorized", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await request(app)
+        .get("/api/test-error")
+        .set("x-demo-error-token", process.env.DEMO_ERROR_TOKEN);
+
+      expect(res.status).toBe(500);
+      expect(res.body.application).toBe("demo-app");
+      expect(res.body.error).toContain("Synthetic demo application failure");
+      expect(res.body.correlationId).toBeDefined();
+      expect(res.headers["x-correlation-id"]).toBe(res.body.correlationId);
+      expect(log).toHaveBeenCalledWith(
+        "Synthetic demo application failure",
+        expect.objectContaining({ application: "demo-app", correlationId: res.body.correlationId })
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("reproduces the token-gated missing-profile defect with a correlated TypeError", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await request(app)
+        .get("/api/test-bug")
+        .set("x-demo-error-token", process.env.DEMO_ERROR_TOKEN);
+
+      expect(res.status).toBe(500);
+      expect(res.body.defect).toBe("missing-profile-null-guard");
+      expect(res.body.error).toContain("displayName");
+      expect(res.body.correlationId).toBeDefined();
+      expect(log).toHaveBeenCalledWith(
+        "Known demo code defect",
+        expect.objectContaining({
+          application: "demo-app",
+          correlationId: res.body.correlationId,
+          errorName: "TypeError",
+        })
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("disables intentionally vulnerable routes in production by default", () => {
+    const { vulnerableDemoRoutesEnabled } = require("../server");
+    expect(vulnerableDemoRoutesEnabled({ NODE_ENV: "production" })).toBe(false);
+    expect(vulnerableDemoRoutesEnabled({ NODE_ENV: "production", ENABLE_VULNERABLE_DEMOS: "true" })).toBe(true);
   });
 });
 
