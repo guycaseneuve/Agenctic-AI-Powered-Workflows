@@ -47,14 +47,15 @@ describe("Synthetic App Insights error endpoint", () => {
     }
   });
 
-  it("reproduces the token-gated missing-profile defect with a correlated TypeError", async () => {
+  it("reproduces the token-gated missing-profile defect with a correlated handled error", async () => {
     const log = jest.spyOn(console, "error").mockImplementation(() => {});
     try {
       const res = await request(app)
         .get("/api/test-bug")
         .set("x-demo-error-token", process.env.DEMO_ERROR_TOKEN);
 
-      expect(res.status).toBe(500);
+      // The endpoint previously threw a TypeError. It is now guarded and returns a correlated 400.
+      expect(res.status).toBe(400);
       expect(res.body.defect).toBe("missing-profile-null-guard");
       expect(res.body.error).toContain("displayName");
       expect(res.body.correlationId).toBeDefined();
@@ -63,7 +64,7 @@ describe("Synthetic App Insights error endpoint", () => {
         expect.objectContaining({
           application: "demo-app",
           correlationId: res.body.correlationId,
-          errorName: "TypeError",
+          errorName: "Error",
         })
       );
     } finally {
