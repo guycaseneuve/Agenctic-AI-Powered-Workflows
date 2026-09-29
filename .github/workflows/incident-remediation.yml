@@ -1,0 +1,264 @@
+name: Incident remediation
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident_id:
+        description: Unique incident ID. Change it for a new issue.
+        required: true
+        type: string
+      application:
+        description: Application name used by the App Insights MCP query.
+        required: true
+        default: demo-app
+        type: string
+      repository:
+        description: Allowlisted repository in owner/name form.
+        required: true
+        default: guycaseneuve/Agenctic-AI-Powered-Workflows
+        type: string
+      ref:
+        description: Repository ref containing the incident source.
+        required: true
+        default: test/demo-app-telemetry-defect-20260929
+        type: string
+      started_at:
+        description: Incident window start in UTC ISO 8601 format.
+        required: true
+        type: string
+      ended_at:
+        description: Incident window end in UTC ISO 8601 format.
+        required: true
+        type: string
+      failure_message:
+        description: Failure message reported by telemetry.
+        required: true
+        type: string
+      correlation_id:
+        description: App Insights operation ID, when available.
+        required: false
+        default: ""
+        type: string
+      failure_source:
+        description: Source table or telemetry source.
+        required: false
+        default: AppExceptions
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: incident-remediation-${{ inputs.incident_id }}
+  cancel-in-progress: false
+
+env:
+  AZURE_DEV_USER_AGENT: microsoft_foundry_skill
+  FOUNDRY_AGENT_ENDPOINT: ${{ vars.FOUNDRY_AGENT_ENDPOINT }}
+
+jobs:
+  plan:
+    name: Investigate and create plan
+    runs-on: ubuntu-latest
+    outputs:
+      session_id: ${{ steps.plan.outputs.session_id }}
+      invocation_id: ${{ steps.plan.outputs.invocation_id }}
+      plan_hash: ${{ steps.plan.outputs.plan_hash }}
+      issue_url: ${{ steps.plan.outputs.issue_url }}
+    steps:
+      - name: Sign in to Azure with OIDC
+        uses: Azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run incident investigation
+        id: plan
+        shell: pwsh
+        env:
+          INCIDENT_ID: ${{ inputs.incident_id }}
+          APPLICATION: ${{ inputs.application }}
+          REPOSITORY: ${{ inputs.repository }}
+          INCIDENT_REF: ${{ inputs.ref }}
+          STARTED_AT: ${{ inputs.started_at }}
+          ENDED_AT: ${{ inputs.ended_at }}
+          FAILURE_MESSAGE: ${{ inputs.failure_message }}
+          CORRELATION_ID: ${{ inputs.correlation_id }}
+          FAILURE_SOURCE: ${{ inputs.failure_source }}
+        run: |
+          . ./.github/scripts/incident-remediation.ps1
+          if ([string]::IsNullOrWhiteSpace($env:FOUNDRY_AGENT_ENDPOINT)) { throw "FOUNDRY_AGENT_ENDPOINT repository variable is required." }
+
+          $payload = @{
+            action = "investigate"
+            incident = @{
+              incidentId = $env:INCIDENT_ID
+              application = $env:APPLICATION
+              repository = $env:REPOSITORY
+              ref = $env:INCIDENT_REF
+              startedAt = $env:STARTED_AT
+              endedAt = $env:ENDED_AT
+              failure = @{
+                message = $env:FAILURE_MESSAGE
+                source = $env:FAILURE_SOURCE
+                correlationId = $env:CORRELATION_ID
+              }
+            }
+          }
+          $result = Invoke-AgentAndWait -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -Payload $payload
+          $output = $result.State.output
+          if ($result.State.status -ne "awaiting_plan_approval") {
+            Write-IncidentSummary -Title "Incident remediation plan failed" -State $result -NextAction "Review the hosted-agent error output."
+            throw "Expected awaiting_plan_approval, received $($result.State.status)."
+          }
+
+          "session_id=$($result.SessionId)" >> $env:GITHUB_OUTPUT
+          "invocation_id=$($result.InvocationId)" >> $env:GITHUB_OUTPUT
+          "plan_hash=$($output.planHash)" >> $env:GITHUB_OUTPUT
+          "issue_url=$($output.issue.url)" >> $env:GITHUB_OUTPUT
+          Write-IncidentSummary -Title "Incident remediation plan ready" -State $result -NextAction "Plan approval is required."
+
+  approve_plan:
+    name: Approve exact plan
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: incident-plan-approval
+    outputs:
+      session_id: ${{ steps.approve.outputs.session_id }}
+      invocation_id: ${{ steps.approve.outputs.invocation_id }}
+    steps:
+      - name: Sign in to Azure with OIDC
+        uses: Azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Approve exact plan hash
+        id: approve
+        shell: pwsh
+        env:
+          SESSION_ID: ${{ needs.plan.outputs.session_id }}
+          PLAN_HASH: ${{ needs.plan.outputs.plan_hash }}
+        run: |
+          . ./.github/scripts/incident-remediation.ps1
+          $payload = @{ action = "approve_plan"; planHash = $env:PLAN_HASH }
+          $result = Invoke-AgentAndWait -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -Payload $payload -SessionId $env:SESSION_ID
+          if ($result.State.status -ne "awaiting_action_approval") {
+            Write-IncidentSummary -Title "Plan approval did not produce an action gate" -State $result -NextAction "Review the hosted-agent response."
+            throw "Expected an action approval gate, received $($result.State.status)."
+          }
+          "session_id=$($env:SESSION_ID)" >> $env:GITHUB_OUTPUT
+          "invocation_id=$($result.InvocationId)" >> $env:GITHUB_OUTPUT
+          Write-IncidentSummary -Title "Plan approved" -State $result -NextAction "Approve the branch-change gate."
+
+  apply_changes:
+    name: Approve branch changes
+    needs: approve_plan
+    runs-on: ubuntu-latest
+    environment: incident-change-approval
+    outputs:
+      session_id: ${{ steps.apply.outputs.session_id }}
+      invocation_id: ${{ steps.apply.outputs.invocation_id }}
+    steps:
+      - name: Sign in to Azure with OIDC
+        uses: Azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Approve current branch-change gate
+        id: apply
+        shell: pwsh
+        env:
+          SESSION_ID: ${{ needs.approve_plan.outputs.session_id }}
+          GATE_INVOCATION_ID: ${{ needs.approve_plan.outputs.invocation_id }}
+        run: |
+          . ./.github/scripts/incident-remediation.ps1
+          $current = Get-AgentInvocation -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -SessionId $env:SESSION_ID -InvocationId $env:GATE_INVOCATION_ID
+          $wrapped = [pscustomobject]@{ SessionId = $env:SESSION_ID; InvocationId = $env:GATE_INVOCATION_ID; State = $current }
+          $gate = Get-CurrentGate -State $wrapped
+          if ([int]$gate.step_index -ne 0) { throw "Expected branch-change gate step 0, received $($gate.step_index)." }
+          $result = Invoke-AgentApproval -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -SessionId $env:SESSION_ID -Gate $gate
+          if ($result.State.status -ne "awaiting_action_approval") {
+            Write-IncidentSummary -Title "Branch changes did not complete" -State $result -NextAction "Review the hosted-agent response."
+            throw "Expected the draft-PR gate, received $($result.State.status)."
+          }
+          "session_id=$($env:SESSION_ID)" >> $env:GITHUB_OUTPUT
+          "invocation_id=$($result.InvocationId)" >> $env:GITHUB_OUTPUT
+          Write-IncidentSummary -Title "Branch changes applied" -State $result -NextAction "Approve draft PR creation."
+
+  create_draft_pr:
+    name: Approve draft PR creation
+    needs: apply_changes
+    runs-on: ubuntu-latest
+    environment: incident-pr-approval
+    outputs:
+      session_id: ${{ steps.pr.outputs.session_id }}
+      invocation_id: ${{ steps.pr.outputs.invocation_id }}
+    steps:
+      - name: Sign in to Azure with OIDC
+        uses: Azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Approve current draft-PR gate
+        id: pr
+        shell: pwsh
+        env:
+          SESSION_ID: ${{ needs.apply_changes.outputs.session_id }}
+          GATE_INVOCATION_ID: ${{ needs.apply_changes.outputs.invocation_id }}
+        run: |
+          . ./.github/scripts/incident-remediation.ps1
+          $current = Get-AgentInvocation -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -SessionId $env:SESSION_ID -InvocationId $env:GATE_INVOCATION_ID
+          $wrapped = [pscustomobject]@{ SessionId = $env:SESSION_ID; InvocationId = $env:GATE_INVOCATION_ID; State = $current }
+          $gate = Get-CurrentGate -State $wrapped
+          if ([int]$gate.step_index -ne 1) { throw "Expected draft-PR gate step 1, received $($gate.step_index)." }
+          $result = Invoke-AgentApproval -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -SessionId $env:SESSION_ID -Gate $gate
+          if ($result.State.status -eq "validation_failed") {
+            Write-IncidentSummary -Title "Draft PR validation failed" -State $result -NextAction "Review the draft PR checks."
+            throw "Hosted-agent PR validation failed."
+          }
+          if ($result.State.status -ne "awaiting_action_approval") {
+            Write-IncidentSummary -Title "Draft PR was not ready for final approval" -State $result -NextAction "Review the hosted-agent response."
+            throw "Expected the final readiness gate, received $($result.State.status)."
+          }
+          "session_id=$($env:SESSION_ID)" >> $env:GITHUB_OUTPUT
+          "invocation_id=$($result.InvocationId)" >> $env:GITHUB_OUTPUT
+          Write-IncidentSummary -Title "Draft PR created and checks passed" -State $result -NextAction "Approve marking the PR ready for review."
+
+  mark_pr_ready:
+    name: Approve PR readiness
+    needs: create_draft_pr
+    runs-on: ubuntu-latest
+    environment: incident-ready-approval
+    steps:
+      - name: Sign in to Azure with OIDC
+        uses: Azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Mark PR ready after validation
+        shell: pwsh
+        env:
+          SESSION_ID: ${{ needs.create_draft_pr.outputs.session_id }}
+          GATE_INVOCATION_ID: ${{ needs.create_draft_pr.outputs.invocation_id }}
+        run: |
+          . ./.github/scripts/incident-remediation.ps1
+          $current = Get-AgentInvocation -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -SessionId $env:SESSION_ID -InvocationId $env:GATE_INVOCATION_ID
+          $wrapped = [pscustomobject]@{ SessionId = $env:SESSION_ID; InvocationId = $env:GATE_INVOCATION_ID; State = $current }
+          $gate = Get-CurrentGate -State $wrapped
+          if ([int]$gate.step_index -ne 3) { throw "Expected PR-ready gate step 3, received $($gate.step_index)." }
+          $result = Invoke-AgentApproval -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -SessionId $env:SESSION_ID -Gate $gate
+          if ($result.State.status -ne "deployment_pending") {
+            Write-IncidentSummary -Title "PR readiness did not complete" -State $result -NextAction "Review the hosted-agent response."
+            throw "Expected deployment_pending, received $($result.State.status)."
+          }
+          Write-IncidentSummary -Title "Incident remediation complete" -State $result -NextAction "Review and merge the PR through normal GitHub controls."
