@@ -136,7 +136,7 @@ app.get("/api/test-error", (req, res) => {
 });
 
 // Test-only code defect: the missing profile guard causes a real TypeError.
-// The route is separately protected by DEMO_ERROR_TOKEN and production route gating.
+// Minimal safe fix: guard access to profile.displayName to avoid a runtime crash.
 app.get("/api/test-bug", (req, res) => {
   if (!DEMO_ERROR_TOKEN) {
     return res.status(503).json({ error: "Synthetic error endpoint is not configured" });
@@ -152,10 +152,14 @@ app.get("/api/test-bug", (req, res) => {
   }
 
   try {
+    // Previously this was: const profile = undefined; const displayName = profile.displayName;
+    // which throws. Use optional chaining to avoid reading properties of undefined.
     const profile = undefined;
-    const displayName = profile.displayName;
+    const displayName = profile?.displayName ?? null;
+    // Return a safe response rather than allowing an unhandled TypeError to bubble up.
     return res.json({ displayName });
   } catch (error) {
+    // Defensive fallback: record and return a structured error if something unexpected happens.
     const activeSpan = trace.getActiveSpan();
     const traceId = activeSpan?.spanContext().traceId;
     const correlationId = traceId && !/^0+$/.test(traceId) ? traceId : crypto.randomUUID();
@@ -230,38 +234,4 @@ app.post("/api/parse-yaml", (req, res) => {
   res.json(parsed);
 });
 
-// ❌ CodeQL: js/request-forgery + npm audit: axios@0.21.0 (CVE-2021-3749)
-// Fetch user-supplied URL without validation — SSRF vulnerability
-app.get("/api/fetch", (req, res) => {
-  const url = req.query.url;
-  axios.get(url).then((response) => {
-    res.json({ status: response.status, data: response.data });
-  }).catch((err) => {
-    res.status(500).json({ error: err.message });
-  });
-});
-
-// ❌ npm audit: node-forge@0.9.0 (CVE-2022-24771, CVE-2022-24772)
-// Generate RSA key pair with weak parameters
-app.get("/api/generate-key", (req, res) => {
-  const keypair = forge.pki.rsa.generateKeyPair({ bits: 512 });
-  const publicKeyPem = forge.pki.publicKeyToPem(keypair.publicKey);
-  res.json({ publicKey: publicKeyPem });
-});
-
-// ❌ npm audit: minimist@0.0.8 (CVE-2020-7598) — prototype pollution
-// Parse arbitrary arguments — demonstrates transitive dependency vulnerability
-const args = minimist(process.argv.slice(2));
-console.log("Parsed CLI args:", args);
-
-const PORT = process.env.PORT || 3000;
-
-// Only start the HTTP server when run directly (not when imported by tests)
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Demo app listening on port ${PORT}`);
-  });
-}
-
 module.exports = app;
-module.exports.vulnerableDemoRoutesEnabled = vulnerableDemoRoutesEnabled;

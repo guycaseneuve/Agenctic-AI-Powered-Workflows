@@ -47,28 +47,14 @@ describe("Synthetic App Insights error endpoint", () => {
     }
   });
 
-  it("reproduces the token-gated missing-profile defect with a correlated TypeError", async () => {
-    const log = jest.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      const res = await request(app)
-        .get("/api/test-bug")
-        .set("x-demo-error-token", process.env.DEMO_ERROR_TOKEN);
+  it("returns a safe response when the demo profile is missing (no runtime crash)", async () => {
+    const res = await request(app)
+      .get("/api/test-bug")
+      .set("x-demo-error-token", process.env.DEMO_ERROR_TOKEN);
 
-      expect(res.status).toBe(500);
-      expect(res.body.defect).toBe("missing-profile-null-guard");
-      expect(res.body.error).toContain("displayName");
-      expect(res.body.correlationId).toBeDefined();
-      expect(log).toHaveBeenCalledWith(
-        "Known demo code defect",
-        expect.objectContaining({
-          application: "demo-app",
-          correlationId: res.body.correlationId,
-          errorName: "TypeError",
-        })
-      );
-    } finally {
-      log.mockRestore();
-    }
+    // The endpoint used to throw a TypeError. It now returns safely with a null displayName.
+    expect(res.status).toBe(200);
+    expect(res.body.displayName).toBeNull();
   });
 
   it("disables intentionally vulnerable routes in production by default", () => {
