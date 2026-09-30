@@ -71,6 +71,24 @@ describe("Synthetic App Insights error endpoint", () => {
     }
   });
 
+  // Regression test to ensure the guarded behavior remains observable and correlated
+  it("regression: /api/test-bug returns controlled missing-profile error", async () => {
+    const log = jest.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await request(app)
+        .get("/api/test-bug")
+        .set("x-demo-error-token", process.env.DEMO_ERROR_TOKEN);
+
+      expect(res.status).toBe(500);
+      expect(res.body.defect).toBe("missing-profile-null-guard");
+      // ensure the response message still contains the displayName hint
+      expect(res.body.error).toContain("displayName");
+      expect(res.body.correlationId).toBeDefined();
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("disables intentionally vulnerable routes in production by default", () => {
     const { vulnerableDemoRoutesEnabled } = require("../server");
     expect(vulnerableDemoRoutesEnabled({ NODE_ENV: "production" })).toBe(false);
