@@ -151,34 +151,10 @@ app.get("/api/test-bug", (req, res) => {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  try {
-    const profile = undefined;
-    const displayName = profile.displayName;
-    return res.json({ displayName });
-  } catch (error) {
-    const activeSpan = trace.getActiveSpan();
-    const traceId = activeSpan?.spanContext().traceId;
-    const correlationId = traceId && !/^0+$/.test(traceId) ? traceId : crypto.randomUUID();
-    if (activeSpan) {
-      activeSpan.recordException(error);
-      activeSpan.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-    }
-    console.error("Known demo code defect", {
-      application: "demo-app",
-      correlationId,
-      errorName: error.name,
-      errorMessage: error.message,
-      defect: "missing-profile-null-guard",
-    });
-    res.set("x-correlation-id", correlationId);
-    return res.status(500).json({
-      error: error.message,
-      application: "demo-app",
-      correlationId,
-      defect: "missing-profile-null-guard",
-      timestamp: new Date().toISOString(),
-    });
-  }
+  // Gracefully handle missing profile without throwing; return displayName:null
+  const profile = undefined;
+  const displayName = profile?.displayName ?? null;
+  return res.json({ displayName });
 });
 
 // Use lodash (vulnerable version) to demonstrate dependency scanning
