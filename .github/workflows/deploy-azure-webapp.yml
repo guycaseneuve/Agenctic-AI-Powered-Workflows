@@ -52,11 +52,15 @@ jobs:
       - name: Publish Nop.Web
         run: dotnet publish nopCommerce/src/Presentation/Nop.Web/Nop.Web.csproj --no-restore --configuration Release --output "${{ runner.temp }}\nopcommerce-publish"
 
-      - name: Upload published Web App
+      - name: Archive published files at package root
+        shell: pwsh
+        run: Compress-Archive -Path "${{ runner.temp }}\nopcommerce-publish\*" -DestinationPath "${{ runner.temp }}\nopcommerce-webapp.zip" -CompressionLevel Optimal
+
+      - name: Upload deployment package
         uses: actions/upload-artifact@v4
         with:
           name: nopcommerce-webapp
-          path: "${{ runner.temp }}\nopcommerce-publish"
+          path: "${{ runner.temp }}\nopcommerce-webapp.zip"
           if-no-files-found: error
           retention-days: 1
 
@@ -75,7 +79,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: nopcommerce-webapp
-          path: nopcommerce-publish
+          path: nopcommerce-artifact
 
       - name: Verify deployment settings
         shell: pwsh
@@ -96,7 +100,7 @@ jobs:
         with:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: nopcommerce-publish
+          package: nopcommerce-artifact/nopcommerce-webapp.zip
 
       - name: Verify Web App responds
         shell: pwsh
@@ -108,6 +112,6 @@ jobs:
           }
 
           $response = Invoke-WebRequest -Uri $env:WEBAPP_URL -MaximumRedirection 5 -TimeoutSec 30 -SkipHttpErrorCheck
-          if ($response.StatusCode -ge 500) {
+          if ($response.StatusCode -ge 400) {
             throw "Web App returned HTTP $($response.StatusCode) after deployment."
           }
