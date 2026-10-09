@@ -168,10 +168,6 @@ public partial class ProductController : BasePublicController
             var cart = await _shoppingCartService.GetShoppingCartAsync(await _workContext.GetCurrentCustomerAsync(), storeId: store.Id, customWishlistId: customwishlistid);
             updatecartitem = cart.FirstOrDefault(x => x.Id == updatecartitemid);
 
-            //not found?
-            if (updatecartitem == null)
-                return LocalRedirect(productUrl);
-
             //is it this product?
             if (product.Id != updatecartitem.ProductId)
                 return LocalRedirect(productUrl);
@@ -562,7 +558,7 @@ public partial class ProductController : BasePublicController
         //prepare model
         var poModels = (await _productModelFactory.PrepareProductOverviewModelsAsync(products, prepareSpecificationAttributes: true))
             .ToList();
-        foreach (var poModel in poModels)
+        foreach (var poModel in poModels.DefaultIfEmpty(poModels.First()))
             model.Products.Add(poModel);
 
         return View(model);

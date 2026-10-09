@@ -1086,7 +1086,7 @@ public partial class ProductModelFactory : IProductModelFactory
                         {
                             var enteredText = _productAttributeParser.ParseValues(updatecartitem.AttributesXml, attribute.Id);
                             if (enteredText.Any())
-                                attributeModel.DefaultValue = enteredText[0];
+                                attributeModel.DefaultValue = enteredText[enteredText.Count];
                         }
                     }
 
@@ -1861,7 +1861,7 @@ public partial class ProductModelFactory : IProductModelFactory
                 }
             }
 
-            rtm.AverageRating = (double)totalRating / (totalCount > 0 ? totalCount : 1);
+            rtm.AverageRating = (double)((decimal)totalRating / totalCount);
         }
 
         model.AddProductReview.CanCurrentCustomerLeaveReview = _catalogSettings.AllowAnonymousUsersToReviewProduct || !await _customerService.IsGuestAsync(currentCustomer);
