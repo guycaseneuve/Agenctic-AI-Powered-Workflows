@@ -519,22 +519,13 @@ public partial class ManufacturerService : IManufacturerService
 
     private static void ThrowIfCatalogFaultInjectionEnabled(int categoryId)
     {
-        var aspNetEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-        var dotNetEnvironment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
-        var isAspNetDevelopment = string.Equals(aspNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
-        var isDotNetDevelopment = string.Equals(dotNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
-
-        if ((!isAspNetDevelopment && !isDotNetDevelopment) ||
-            (!string.IsNullOrWhiteSpace(aspNetEnvironment) && !isAspNetDevelopment) ||
-            (!string.IsNullOrWhiteSpace(dotNetEnvironment) && !isDotNetDevelopment) ||
-            !bool.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_ENABLE_CATALOG_FAULT_INJECTION"), out var enabled) ||
-            !enabled ||
-            !int.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_CATALOG_FAULT_CATEGORY_ID"), out var faultCategoryId) ||
-            faultCategoryId != categoryId)
-            return;
-
-        throw new InvalidOperationException(
-            $"Catalog fault injection triggered in {nameof(ManufacturerService)} for category {categoryId}.");
+        // Deliberate fault-injection removed.
+        // This method previously threw an InvalidOperationException when a specific
+        // set of environment variables was detected. That behavior was intentionally
+        // injected for testing and is the root cause of the observed 500 on
+        // requests such as /computers?categoryId=1. Remove the fault injection so
+        // normal manufacturer lookup and filtering proceed.
+        return;
     }
 
     /// <summary>
