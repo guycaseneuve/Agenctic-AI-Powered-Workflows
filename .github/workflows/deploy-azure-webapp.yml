@@ -1,5 +1,5 @@
 name: Deploy nopCommerce to Azure Web App
-
+ 
 on:
   push:
     branches: [main]
@@ -134,7 +134,35 @@ jobs:
             throw "Azure deployment did not return a Web App URL."
           }
 
-          $response = Invoke-WebRequest -Uri $env:WEBAPP_URL -MaximumRedirection 5 -TimeoutSec 30 -SkipHttpErrorCheck
-          if ($response.StatusCode -ge 400) {
-            throw "Web App returned HTTP $($response.StatusCode) after deployment."
+          $maxAttempts = 6
+          $healthy = $false
+          $lastError = "No response received."
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            try {
+              $response = Invoke-WebRequest -Uri $env:WEBAPP_URL -MaximumRedirection 5 -TimeoutSec 30 -SkipHttpErrorCheck
+              if ($response.StatusCode -ge 400 -and $response.StatusCode -lt 500) {
+                throw "Web App returned client error HTTP $($response.StatusCode)."
+              }
+              if ($response.StatusCode -lt 500) {
+                $healthy = $true
+                Write-Host "Web App responded with HTTP $($response.StatusCode) on attempt $attempt."
+                break
+              }
+              $lastError = "Web App returned HTTP $($response.StatusCode)."
+            }
+            catch {
+              $lastError = $_.Exception.Message
+              if ($lastError -match '^Web App returned client error HTTP 4[0-9][0-9]') {
+                throw
+              }
+            }
+
+            if ($attempt -lt $maxAttempts) {
+              Write-Host "Health check attempt $attempt failed: $lastError Retrying in 15 seconds."
+              Start-Sleep -Seconds 15
+            }
+          }
+
+          if (-not $healthy) {
+            throw "Web App did not become healthy after $maxAttempts attempts. Last error: $lastError"
           }
