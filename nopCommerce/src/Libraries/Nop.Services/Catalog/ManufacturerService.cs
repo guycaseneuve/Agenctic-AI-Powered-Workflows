@@ -538,26 +538,6 @@ public partial class ManufacturerService : IManufacturerService
             $"Catalog fault injection triggered in {nameof(ManufacturerService)} for category {categoryId}.");
     }
 
-    private static void ThrowIfCatalogFaultInjectionEnabled(int categoryId)
-    {
-        var aspNetEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-        var dotNetEnvironment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
-        var isAspNetDevelopment = string.Equals(aspNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
-        var isDotNetDevelopment = string.Equals(dotNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
-
-        if ((!isAspNetDevelopment && !isDotNetDevelopment) ||
-            (!string.IsNullOrWhiteSpace(aspNetEnvironment) && !isAspNetDevelopment) ||
-            (!string.IsNullOrWhiteSpace(dotNetEnvironment) && !isDotNetDevelopment) ||
-            !bool.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_ENABLE_CATALOG_FAULT_INJECTION"), out var enabled) ||
-            !enabled ||
-            !int.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_CATALOG_FAULT_CATEGORY_ID"), out var faultCategoryId) ||
-            faultCategoryId != categoryId)
-            return;
-
-        throw new InvalidOperationException(
-            $"Catalog fault injection triggered in {nameof(ManufacturerService)} for category {categoryId}.");
-    }
-
     /// <summary>
     /// Returns a ProductManufacturer that has the specified values
     /// </summary>
