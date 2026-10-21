@@ -28,6 +28,7 @@ public class CheckoutModelFactoryTests : ServiceTest
     private OrderSettings _orderSettings;
     private ShippingSettings _shippingSettings;
     private RewardPointsSettings _rewardPointsSettings;
+    private bool _originalRewardPointsEnabled;
     private IAddressService _addressService;
     private Address _address;
     private ISettingService _settingService;
@@ -44,6 +45,9 @@ public class CheckoutModelFactoryTests : ServiceTest
         _settingService = GetService<ISettingService>();
         _shippingSettings = GetService<ShippingSettings>();
         _rewardPointsSettings = GetService<RewardPointsSettings>();
+        _originalRewardPointsEnabled = _rewardPointsSettings.Enabled;
+        _rewardPointsSettings.Enabled = true;
+        await _settingService.SaveSettingAsync(_rewardPointsSettings);
         _commonSettings = GetService<CommonSettings>();
 
         _shippingSettings.ActiveShippingRateComputationMethodSystemNames.Add("FixedRateTestShippingRateComputationMethod");
@@ -95,7 +99,7 @@ public class CheckoutModelFactoryTests : ServiceTest
         _paymentSettings.ActivePaymentMethodSystemNames.Clear();
         await _settingService.SaveSettingAsync(_paymentSettings);
 
-        _rewardPointsSettings.Enabled = true;
+        _rewardPointsSettings.Enabled = _originalRewardPointsEnabled;
         await _settingService.SaveSettingAsync(_rewardPointsSettings);
         foreach (var history in await _rewardPointService.GetRewardPointsHistoryAsync(_customer.Id))
             await _rewardPointService.DeleteRewardPointsHistoryEntryAsync(history);
@@ -152,12 +156,12 @@ public class CheckoutModelFactoryTests : ServiceTest
     {
         var model = await _checkoutModelFactory.PreparePaymentMethodModelAsync(_cart, 0);
 
-        model.DisplayRewardPoints.Should().BeTrue();
+        model.DisplayRewardPoints.Should().BeTrue("reward points are enabled and the customer has a redeemable balance");
         model.PaymentMethods.Count.Should().Be(1);
         model.RewardPointsToUseAmount.Should().Be("$1,944.90");
         model.RewardPointsToUse.Should().Be(1945);
         model.RewardPointsBalance.Should().Be(10000);
-        model.RewardPointsEnoughToPayForOrder.Should().BeTrue();
+        model.RewardPointsEnoughToPayForOrder.Should().BeTrue("the reward point balance covers the complete cart total");
         model.UseRewardPoints.Should().BeFalse();
     }
 
