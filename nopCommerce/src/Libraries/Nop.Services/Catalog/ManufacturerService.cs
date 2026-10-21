@@ -259,7 +259,8 @@ public partial class ManufacturerService : IManufacturerService
         //apply ACL constraints
         productsQuery = await _aclService.ApplyAcl(productsQuery, customerRoleIds);
 
-        ThrowIfCatalogFaultInjectionEnabled(categoryId);
+        // Fault injection hook removed: deliberate testing hook that threw for a specific category
+        // has been eliminated so that normal category->manufacturer lookup proceeds.
 
         var subCategoryIds = _catalogSettings.ShowProductsFromSubcategories
             ? await _categoryService.GetChildCategoryIdsAsync(categoryId, store.Id)
