@@ -259,8 +259,7 @@ public partial class ManufacturerService : IManufacturerService
         //apply ACL constraints
         productsQuery = await _aclService.ApplyAcl(productsQuery, customerRoleIds);
 
-        ThrowIfCatalogFaultInjectionEnabled(categoryId);
-
+        // Fault-injection removed. Proceed with normal lookup of subcategories.
         var subCategoryIds = _catalogSettings.ShowProductsFromSubcategories
             ? await _categoryService.GetChildCategoryIdsAsync(categoryId, store.Id)
             : null;
@@ -519,22 +518,9 @@ public partial class ManufacturerService : IManufacturerService
 
     private static void ThrowIfCatalogFaultInjectionEnabled(int categoryId)
     {
-        var aspNetEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-        var dotNetEnvironment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
-        var isAspNetDevelopment = string.Equals(aspNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
-        var isDotNetDevelopment = string.Equals(dotNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
-
-        if ((!isAspNetDevelopment && !isDotNetDevelopment) ||
-            (!string.IsNullOrWhiteSpace(aspNetEnvironment) && !isAspNetDevelopment) ||
-            (!string.IsNullOrWhiteSpace(dotNetEnvironment) && !isDotNetDevelopment) ||
-            !bool.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_ENABLE_CATALOG_FAULT_INJECTION"), out var enabled) ||
-            !enabled ||
-            !int.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_CATALOG_FAULT_CATEGORY_ID"), out var faultCategoryId) ||
-            faultCategoryId != categoryId)
-            return;
-
-        throw new InvalidOperationException(
-            $"Catalog fault injection triggered in {nameof(ManufacturerService)} for category {categoryId}.");
+        // The deliberate fault-injection was removed.
+        // This helper is kept as a no-op to avoid touching call sites elsewhere.
+        return;
     }
 
     /// <summary>
