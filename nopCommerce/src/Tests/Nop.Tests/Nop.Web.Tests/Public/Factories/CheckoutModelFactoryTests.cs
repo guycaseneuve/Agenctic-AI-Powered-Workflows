@@ -154,6 +154,12 @@ public class CheckoutModelFactoryTests : ServiceTest
     [Test]
     public async Task CanPreparePaymentMethodModel()
     {
+        var totals = await GetService<IOrderTotalCalculationService>().GetShoppingCartTotalAsync(_cart, true, false);
+        var balance = await _rewardPointService.GetRewardPointsBalanceAsync(_customer.Id, 1);
+        TestContext.Out.WriteLine(
+            $"Reward points: enabled={GetService<RewardPointsSettings>().Enabled}, balance={balance}, " +
+            $"cartItems={_cart.Count}, total={totals.shoppingCartTotal}, redeemed={totals.redeemedRewardPoints}, " +
+            $"recurring={await _shoppingCartService.ShoppingCartIsRecurringAsync(_cart)}");
         var model = await _checkoutModelFactory.PreparePaymentMethodModelAsync(_cart, 0);
 
         model.DisplayRewardPoints.Should().BeTrue("reward points are enabled and the customer has a redeemable balance");
