@@ -1,6 +1,14 @@
 // Demo app — intentionally vulnerable for security scanning demonstration
 // DO NOT deploy this to production. These patterns trigger CodeQL SAST rules.
 
+const crypto = require("crypto");
+const { useAzureMonitor } = require("@azure/monitor-opentelemetry");
+const { SpanStatusCode, trace } = require("@opentelemetry/api");
+
+if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
+  useAzureMonitor();
+}
+
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -15,6 +23,23 @@ const forge = require("node-forge");
 const minimist = require("minimist");
 
 const app = express();
+const DEMO_ERROR_TOKEN = process.env.DEMO_ERROR_TOKEN || "";
+
+function vulnerableDemoRoutesEnabled(env = process.env) {
+  return env.NODE_ENV !== "production" || env.ENABLE_VULNERABLE_DEMOS === "true";
+}
+
+app.use((req, res, next) => {
+  if (
+    vulnerableDemoRoutesEnabled() ||
+    req.path === "/api/health" ||
+    req.path === "/api/test-error" ||
+    req.path === "/api/test-bug"
+  ) {
+    return next();
+  }
+  return res.status(404).json({ error: "Not found" });
+});
 
 // ❌ CodeQL: js/hardcoded-credentials
 const API_KEY = "sk_live_4eC39HqLyjWDarjtT1zdp7dc";
@@ -70,6 +95,90 @@ app.get("/api/list", (req, res) => {
 // Safe endpoint for comparison
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+app.get("/api/test-error", (req, res) => {
+  if (!DEMO_ERROR_TOKEN) {
+    return res.status(503).json({ error: "Synthetic error endpoint is not configured" });
+  }
+
+  const suppliedToken = Buffer.from(req.get("x-demo-error-token") || "");
+  const expectedToken = Buffer.from(DEMO_ERROR_TOKEN);
+  if (
+    suppliedToken.length !== expectedToken.length ||
+    !crypto.timingSafeEqual(suppliedToken, expectedToken)
+  ) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const error = new Error("Synthetic demo application failure for incident workflow test");
+  error.name = "SyntheticDemoError";
+  const activeSpan = trace.getActiveSpan();
+  const traceId = activeSpan?.spanContext().traceId;
+  const correlationId = traceId && !/^0+$/.test(traceId) ? traceId : crypto.randomUUID();
+  if (activeSpan) {
+    activeSpan.recordException(error);
+    activeSpan.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+  }
+  console.error("Synthetic demo application failure", {
+    application: "demo-app",
+    correlationId,
+    errorName: error.name,
+  });
+
+  res.set("x-correlation-id", correlationId);
+  return res.status(500).json({
+    error: error.message,
+    application: "demo-app",
+    correlationId,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Test-only code defect: the missing profile guard causes a real TypeError.
+// The route is separately protected by DEMO_ERROR_TOKEN and production route gating.
+app.get("/api/test-bug", (req, res) => {
+  if (!DEMO_ERROR_TOKEN) {
+    return res.status(503).json({ error: "Synthetic error endpoint is not configured" });
+  }
+
+  const suppliedToken = Buffer.from(req.get("x-demo-error-token") || "");
+  const expectedToken = Buffer.from(DEMO_ERROR_TOKEN);
+  if (
+    suppliedToken.length !== expectedToken.length ||
+    !crypto.timingSafeEqual(suppliedToken, expectedToken)
+  ) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const profile = undefined;
+    const displayName = profile.displayName;
+    return res.json({ displayName });
+  } catch (error) {
+    const activeSpan = trace.getActiveSpan();
+    const traceId = activeSpan?.spanContext().traceId;
+    const correlationId = traceId && !/^0+$/.test(traceId) ? traceId : crypto.randomUUID();
+    if (activeSpan) {
+      activeSpan.recordException(error);
+      activeSpan.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+    }
+    console.error("Known demo code defect", {
+      application: "demo-app",
+      correlationId,
+      errorName: error.name,
+      errorMessage: error.message,
+      defect: "missing-profile-null-guard",
+    });
+    res.set("x-correlation-id", correlationId);
+    return res.status(500).json({
+      error: error.message,
+      application: "demo-app",
+      correlationId,
+      defect: "missing-profile-null-guard",
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // Use lodash (vulnerable version) to demonstrate dependency scanning
@@ -151,8 +260,8 @@ const PORT = process.env.PORT || 3000;
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Demo app listening on port ${PORT}`);
-    console.log(`API Key: ${API_KEY}`); // ❌ Logging credentials
   });
 }
 
 module.exports = app;
+module.exports.vulnerableDemoRoutesEnabled = vulnerableDemoRoutesEnabled;

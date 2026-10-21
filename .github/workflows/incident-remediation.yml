@@ -7,42 +7,9 @@ on:
         description: Unique incident ID. Change it for a new issue.
         required: true
         type: string
-      application:
-        description: Application name used by the App Insights MCP query.
+      incident_json:
+        description: Full JSON payload matching the hosted agent's investigate request.
         required: true
-        default: demo-app
-        type: string
-      repository:
-        description: Allowlisted repository in owner/name form.
-        required: true
-        default: guycaseneuve/Agenctic-AI-Powered-Workflows
-        type: string
-      ref:
-        description: Repository ref containing the incident source.
-        required: true
-        default: test/demo-app-telemetry-defect-20260929
-        type: string
-      started_at:
-        description: Incident window start in UTC ISO 8601 format.
-        required: true
-        type: string
-      ended_at:
-        description: Incident window end in UTC ISO 8601 format.
-        required: true
-        type: string
-      failure_message:
-        description: Failure message reported by telemetry.
-        required: true
-        type: string
-      correlation_id:
-        description: App Insights operation ID, when available.
-        required: false
-        default: ""
-        type: string
-      failure_source:
-        description: Source table or telemetry source.
-        required: false
-        default: AppExceptions
         type: string
 
 permissions:
@@ -79,34 +46,35 @@ jobs:
         shell: pwsh
         env:
           INCIDENT_ID: ${{ inputs.incident_id }}
-          APPLICATION: ${{ inputs.application }}
-          REPOSITORY: ${{ inputs.repository }}
-          INCIDENT_REF: ${{ inputs.ref }}
-          STARTED_AT: ${{ inputs.started_at }}
-          ENDED_AT: ${{ inputs.ended_at }}
-          FAILURE_MESSAGE: ${{ inputs.failure_message }}
-          CORRELATION_ID: ${{ inputs.correlation_id }}
-          FAILURE_SOURCE: ${{ inputs.failure_source }}
+          INCIDENT_JSON: ${{ inputs.incident_json }}
         run: |
           . ./.github/scripts/incident-remediation.ps1
           if ([string]::IsNullOrWhiteSpace($env:FOUNDRY_AGENT_ENDPOINT)) { throw "FOUNDRY_AGENT_ENDPOINT repository variable is required." }
 
-          $payload = @{
-            action = "investigate"
-            incident = @{
-              incidentId = $env:INCIDENT_ID
-              application = $env:APPLICATION
-              repository = $env:REPOSITORY
-              ref = $env:INCIDENT_REF
-              startedAt = $env:STARTED_AT
-              endedAt = $env:ENDED_AT
-              failure = @{
-                message = $env:FAILURE_MESSAGE
-                source = $env:FAILURE_SOURCE
-                correlationId = $env:CORRELATION_ID
-              }
+          try {
+            $payload = ConvertFrom-Json -InputObject $env:INCIDENT_JSON -AsHashtable -ErrorAction Stop
+          } catch {
+            throw "incident_json must contain valid JSON: $($_.Exception.Message)"
+          }
+          if ($payload -isnot [System.Collections.IDictionary] -or $payload.action -ne "investigate") {
+            throw "incident_json must be an object with action set to 'investigate'."
+          }
+          if ($payload.incident -isnot [System.Collections.IDictionary]) {
+            throw "incident_json must contain an incident object."
+          }
+          foreach ($field in @("incidentId", "application", "repository", "ref", "startedAt", "endedAt")) {
+            if ([string]::IsNullOrWhiteSpace([string]$payload.incident[$field])) {
+              throw "incident_json is missing incident.$field."
             }
           }
+          if ([string]$payload.incident.incidentId -ne $env:INCIDENT_ID) {
+            throw "incident_id must match incident_json.incident.incidentId."
+          }
+          if ($payload.incident.failure -isnot [System.Collections.IDictionary] -or
+              [string]::IsNullOrWhiteSpace([string]$payload.incident.failure.message)) {
+            throw "incident_json must contain incident.failure.message."
+          }
+
           $result = Invoke-AgentAndWait -Endpoint $env:FOUNDRY_AGENT_ENDPOINT -Payload $payload
           $output = $result.State.output
           if ($result.State.status -ne "awaiting_plan_approval") {
