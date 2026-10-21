@@ -132,6 +132,48 @@ public abstract partial class BaseDataProvider
     /// </summary>
     public virtual void InitializeDatabase()
     {
+        // If the configured connection uses Active Directory Managed Identity authentication,
+        // try to load the Microsoft.Data.SqlClient.Extensions.Azure assembly so
+        // Microsoft.Data.SqlClient can find the requested authentication provider when opening connections.
+        //
+        // We normalize by removing spaces and using lower-case to detect common variations like
+        // "Authentication=Active Directory Managed Identity" or "Authentication=ActiveDirectoryManagedIdentity".
+        var cs = DataSettings.ConnectionString ?? string.Empty;
+        var csNormalized = cs.Replace(" ", string.Empty).ToLowerInvariant();
+        if (csNormalized.Contains("authentication=activedirectorymanagedidentity"))
+        {
+            // Check already loaded assemblies to avoid unnecessary load attempts
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var found = false;
+            foreach (var a in assemblies)
+            {
+                if (string.Equals(a.GetName().Name, "Microsoft.Data.SqlClient.Extensions.Azure", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                try
+                {
+                    // Attempt to load the extensions assembly. When present, its static initializers
+                    // register AD authentication providers with Microsoft.Data.SqlClient.
+                    Assembly.Load("Microsoft.Data.SqlClient.Extensions.Azure");
+                }
+                catch (Exception ex)
+                {
+                    // Fail fast with an actionable message so callers (and deploy-time checks) see
+                    // a clear instruction instead of the lower-level SqlClient ArgumentException later.
+                    throw new InvalidOperationException(
+                        "ActiveDirectoryManagedIdentity authentication requested but Microsoft.Data.SqlClient.Extensions.Azure is not available. " +
+                        "Install the Microsoft.Data.SqlClient.Extensions.Azure NuGet package to enable AD authentication.",
+                        ex);
+                }
+            }
+        }
+
         var migrationManager = EngineContext.Current.Resolve<IMigrationManager>();
 
         var targetAssembly = typeof(NopDbStartup).Assembly;
