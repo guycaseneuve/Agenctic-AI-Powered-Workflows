@@ -2,13 +2,13 @@ name: Deploy nopCommerce to Azure Web App
  
 on:
   push:
-    branches: [main]
+    branches: [test/nopCommerce-app-telemetry-defect-20260929]
     paths:
       - "nopCommerce/src/**"
       - "nopCommerce/global.json"
       - ".github/workflows/deploy-azure-webapp.yml"
   pull_request:
-    branches: [main]
+    branches: [test/nopCommerce-app-telemetry-defect-20260929]
     paths:
       - "nopCommerce/src/**"
       - "nopCommerce/global.json"
