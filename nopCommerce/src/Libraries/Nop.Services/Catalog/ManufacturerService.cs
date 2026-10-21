@@ -259,7 +259,8 @@ public partial class ManufacturerService : IManufacturerService
         //apply ACL constraints
         productsQuery = await _aclService.ApplyAcl(productsQuery, customerRoleIds);
 
-        ThrowIfCatalogFaultInjectionEnabled(categoryId);
+        // Fault injection hook removed: deliberate testing hook that threw for a specific category
+        // has been eliminated so that normal category->manufacturer lookup proceeds.
 
         var subCategoryIds = _catalogSettings.ShowProductsFromSubcategories
             ? await _categoryService.GetChildCategoryIdsAsync(categoryId, store.Id)
@@ -515,6 +516,26 @@ public partial class ManufacturerService : IManufacturerService
             .ToListAsync();
 
         return queryFilter.Except(filter).ToArray();
+    }
+
+    private static void ThrowIfCatalogFaultInjectionEnabled(int categoryId)
+    {
+        var aspNetEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        var dotNetEnvironment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+        var isAspNetDevelopment = string.Equals(aspNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
+        var isDotNetDevelopment = string.Equals(dotNetEnvironment, "Development", StringComparison.OrdinalIgnoreCase);
+
+        if ((!isAspNetDevelopment && !isDotNetDevelopment) ||
+            (!string.IsNullOrWhiteSpace(aspNetEnvironment) && !isAspNetDevelopment) ||
+            (!string.IsNullOrWhiteSpace(dotNetEnvironment) && !isDotNetDevelopment) ||
+            !bool.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_ENABLE_CATALOG_FAULT_INJECTION"), out var enabled) ||
+            !enabled ||
+            !int.TryParse(Environment.GetEnvironmentVariable("NOPCOMMERCE_CATALOG_FAULT_CATEGORY_ID"), out var faultCategoryId) ||
+            faultCategoryId != categoryId)
+            return;
+
+        throw new InvalidOperationException(
+            $"Catalog fault injection triggered in {nameof(ManufacturerService)} for category {categoryId}.");
     }
 
     private static void ThrowIfCatalogFaultInjectionEnabled(int categoryId)
