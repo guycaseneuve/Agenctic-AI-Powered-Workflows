@@ -1,5 +1,5 @@
 name: Deploy nopCommerce to Azure Web App
- 
+  
 on:
   push:
     branches: [test/nopCommerce-app-telemetry-defect-20260929]
