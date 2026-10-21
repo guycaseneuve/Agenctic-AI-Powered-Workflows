@@ -67,7 +67,7 @@ jobs:
   deploy:
     needs: build-test-publish
     if: >-
-      github.ref == 'refs/heads/main' &&
+      github.ref == 'refs/heads/test/nopCommerce-app-telemetry-defect-20260929' &&
       (github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm_deploy))
     runs-on: windows-latest
