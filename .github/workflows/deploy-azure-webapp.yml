@@ -1,14 +1,14 @@
 name: Deploy nopCommerce to Azure Web App
- 
+  
 on:
   push:
-    branches: [main]
+    branches: [test/nopCommerce-app-telemetry-defect-20260929]
     paths:
       - "nopCommerce/src/**"
       - "nopCommerce/global.json"
       - ".github/workflows/deploy-azure-webapp.yml"
   pull_request:
-    branches: [main]
+    branches: [test/nopCommerce-app-telemetry-defect-20260929]
     paths:
       - "nopCommerce/src/**"
       - "nopCommerce/global.json"
@@ -67,7 +67,7 @@ jobs:
   deploy:
     needs: build-test-publish
     if: >-
-      github.ref == 'refs/heads/main' &&
+      github.ref == 'refs/heads/test/nopCommerce-app-telemetry-defect-20260929' &&
       (github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' && inputs.confirm_deploy))
     runs-on: windows-latest
