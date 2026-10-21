@@ -101,8 +101,8 @@ public class ManufacturerServiceFailurePropagationTests
         staticCacheManager
             .Setup(cache => cache.GetAsync(
                 It.IsAny<CacheKey>(),
-                It.IsAny<Func<Task<IList<Manufacturer>>>>()))
-            .Returns((CacheKey _, Func<Task<IList<Manufacturer>>> acquire) => acquire());
+                It.IsAny<Func<Task<List<Manufacturer>>>>()))
+            .Returns((CacheKey _, Func<Task<List<Manufacturer>>> acquire) => acquire());
 
         var service = new ManufacturerService(
             catalogSettings,
@@ -152,7 +152,7 @@ public class ManufacturerServiceFailurePropagationTests
             staticCacheManager.Verify(
                 cache => cache.GetAsync(
                     It.IsAny<CacheKey>(),
-                    It.IsAny<Func<Task<IList<Manufacturer>>>>()),
+                    It.IsAny<Func<Task<List<Manufacturer>>>>()),
                 Times.Once);
         }
         finally
